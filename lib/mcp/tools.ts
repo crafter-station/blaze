@@ -4,6 +4,7 @@ import { serializeDatabase } from "@/lib/api/serialize";
 import { ApiKeyLimitError, createApiKey } from "@/lib/api-keys";
 import { db } from "@/lib/control/db";
 import { databases, type User } from "@/lib/control/schema";
+import { PROVISIONABLE } from "@/lib/engines/available";
 import { ENGINES } from "@/lib/engines/types";
 import { LIMITS, TTL } from "@/lib/limits";
 import { createDatabase, destroyDatabase, getOwnedDatabase } from "@/lib/provision";
@@ -34,7 +35,8 @@ export const TOOLS: ToolDefinition[] = [
 			`for a test fixture, a scratch schema, or a user's app. ` +
 			`Set ttl_seconds for throwaway work so it cleans itself up; 86400 (24h) is a sensible ` +
 			`default for anything experimental. Limit: ${LIMITS.DATABASES_PER_USER} databases per ` +
-			`account, ${LIMITS.STORAGE_BYTES / 1024 / 1024}MB each. Only postgres is available today.`,
+			`account, ${LIMITS.STORAGE_BYTES / 1024 / 1024}MB each. ` +
+			`Available engines: ${PROVISIONABLE.join(", ")}.`,
 		inputSchema: {
 			type: "object",
 			properties: {

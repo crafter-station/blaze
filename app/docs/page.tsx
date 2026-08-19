@@ -1,6 +1,7 @@
 import { ArrowLeft, Terminal } from "lucide-react";
 import Link from "next/link";
 import { CopyButton } from "@/components/copy-button";
+import { PROVISIONABLE } from "@/lib/engines/available";
 import { ENGINE_CONFIG, ENGINES } from "@/lib/engines/types";
 import { LIMITS, TTL } from "@/lib/limits";
 import { MCP_URL, setupPrompt } from "@/lib/setup-prompt";
@@ -274,8 +275,12 @@ url = "${MCP_URL}"
 							automatically once it is back under.
 						</p>
 						<p className="text-muted-foreground text-sm">
-							Engines: {ENGINES.map((e) => ENGINE_CONFIG[e].label).join(", ")}. Only PostgreSQL is
-							available today; the rest are modelled but not yet provisioned.
+							Available now: {PROVISIONABLE.map((e) => ENGINE_CONFIG[e].label).join(", ")}. Modelled
+							but not yet provisioned:{" "}
+							{ENGINES.filter((e) => !PROVISIONABLE.includes(e))
+								.map((e) => ENGINE_CONFIG[e].label)
+								.join(", ")}
+							.
 						</p>
 					</Section>
 

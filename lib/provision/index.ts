@@ -7,12 +7,8 @@ import { encryptSecret, generatePassword } from "@/lib/crypto";
 import { ENGINE_CONFIG, type Engine } from "@/lib/engines/types";
 import { newId, physicalName, slugify } from "@/lib/id";
 import { LIMITS, TTL } from "@/lib/limits";
+import { isSupported, opsFor } from "./engines";
 import { bumpDatabaseCount, selectInstance } from "./placement";
-import {
-	deprovisionPostgresDatabase,
-	provisionPostgresDatabase,
-	resetPostgresPassword,
-} from "./postgres";
 
 export class QuotaExceededError extends Error {
 	constructor(message: string) {
@@ -66,10 +62,7 @@ export async function createDatabase(
 	const started = Date.now();
 	const { engine } = input;
 
-	if (ENGINE_CONFIG[engine].tenancy !== "shared" || engine !== "postgres") {
-		// Shared MySQL/MariaDB/Mongo and dedicated Redis/libsql land in step 7.
-		throw new UnsupportedEngineError(engine);
-	}
+	if (!isSupported(engine)) throw new UnsupportedEngineError(engine);
 
 	await assertUnderDatabaseQuota(user.id);
 
@@ -92,7 +85,7 @@ export async function createDatabase(
 		instance.adminPasswordEnc,
 	);
 
-	await provisionPostgresDatabase({ adminUrl, dbName, roleName, password });
+	await opsFor(engine).provision({ adminUrl, dbName, roleName, password });
 
 	const expiresAt = resolveExpiry(input.ttlMs);
 	const id = newId("db");
@@ -115,7 +108,9 @@ export async function createDatabase(
 			createdVia: input.createdVia ?? "dashboard",
 		});
 	} catch (error) {
-		await deprovisionPostgresDatabase(adminUrl, dbName, roleName).catch(() => {});
+		await opsFor(engine)
+			.deprovision(adminUrl, dbName, roleName)
+			.catch(() => {});
 		throw error;
 	}
 
@@ -166,7 +161,7 @@ export async function destroyDatabase(user: User, databaseId: string): Promise<v
 		record.instance.adminPasswordEnc,
 	);
 
-	await deprovisionPostgresDatabase(adminUrl, record.dbName, record.roleName);
+	await opsFor(record.engine).deprovision(adminUrl, record.dbName, record.roleName);
 
 	await db
 		.update(databases)
@@ -216,7 +211,7 @@ export async function resetDatabasePassword(user: User, databaseId: string): Pro
 	);
 
 	const password = generatePassword();
-	await resetPostgresPassword(adminUrl, record.roleName, password);
+	await opsFor(record.engine).resetPassword(adminUrl, record.roleName, password);
 
 	const passwordEnc = encryptSecret(password);
 	await db.update(databases).set({ passwordEnc }).where(eq(databases.id, databaseId));

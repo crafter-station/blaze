@@ -5,11 +5,7 @@ import { db } from "./control/db";
 import { auditLog, databaseMetrics, databases } from "./control/schema";
 import { newId } from "./id";
 import { LIMITS, METRICS_INTERVAL_MS } from "./limits";
-import {
-	readPostgresStats,
-	resumePostgresDatabase,
-	suspendPostgresDatabase,
-} from "./provision/postgres";
+import { isSupported, opsFor } from "./provision/engines";
 
 /**
  * Per-database metrics sampling.
@@ -48,7 +44,9 @@ export async function sampleDatabase(databaseId: string): Promise<SampleOutcome>
 		suspended: record.status === "suspended",
 	};
 
-	if (record.engine !== "postgres") return base;
+	// Engines without a provisioner have no stats to read either.
+	if (!isSupported(record.engine)) return base;
+	const ops = opsFor(record.engine);
 
 	const adminUrl = adminConnectionString(
 		record.engine,
@@ -58,9 +56,9 @@ export async function sampleDatabase(databaseId: string): Promise<SampleOutcome>
 		record.instance.adminPasswordEnc,
 	);
 
-	let stats: Awaited<ReturnType<typeof readPostgresStats>>;
+	let stats: Awaited<ReturnType<typeof ops.readStats>>;
 	try {
-		stats = await readPostgresStats(adminUrl, record.dbName);
+		stats = await ops.readStats(adminUrl, record.dbName);
 	} catch (error) {
 		// One unreachable database must not abort a sweep over all of them.
 		return { ...base, error: error instanceof Error ? error.message : "unreachable" };
@@ -80,7 +78,7 @@ export async function sampleDatabase(databaseId: string): Promise<SampleOutcome>
 	if (stats.sizeBytes > LIMITS.STORAGE_BYTES && record.status === "active") {
 		// Data is kept — connections are refused, nothing is dropped. Over quota is a
 		// recoverable state the user can fix, not grounds for destroying their database.
-		await suspendPostgresDatabase(adminUrl, record.dbName, record.roleName);
+		await ops.suspend(adminUrl, record.dbName, record.roleName);
 		await db.update(databases).set({ status: "suspended" }).where(eq(databases.id, record.id));
 
 		await db.insert(auditLog).values({
@@ -95,7 +93,7 @@ export async function sampleDatabase(databaseId: string): Promise<SampleOutcome>
 	} else if (stats.sizeBytes <= LIMITS.STORAGE_BYTES && record.status === "suspended") {
 		// Suspension has to be self-clearing. A tenant who frees space and stays locked out
 		// would need a human to notice, which for a free service means never.
-		await resumePostgresDatabase(adminUrl, record.dbName, record.roleName);
+		await ops.resume(adminUrl, record.dbName, record.roleName);
 		await db.update(databases).set({ status: "active" }).where(eq(databases.id, record.id));
 
 		await db.insert(auditLog).values({

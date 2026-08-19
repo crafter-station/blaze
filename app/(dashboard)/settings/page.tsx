@@ -4,6 +4,7 @@ import { listApiKeys } from "@/lib/api-keys";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/control/db";
 import { databases } from "@/lib/control/schema";
+import { isProvisionable } from "@/lib/engines/available";
 import { ENGINE_CONFIG, ENGINES } from "@/lib/engines/types";
 import { formatBytes, formatDate } from "@/lib/format";
 import { LIMITS, TTL } from "@/lib/limits";
@@ -80,7 +81,7 @@ export default async function SettingsPage() {
 				<ul className="divide-y divide-border">
 					{ENGINES.map((engine) => {
 						const config = ENGINE_CONFIG[engine];
-						const live = engine === "postgres";
+						const live = isProvisionable(engine);
 						return (
 							<li key={engine} className="flex items-center justify-between gap-4 px-7 py-4">
 								<span className="flex items-center gap-3">

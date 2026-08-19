@@ -55,7 +55,7 @@ export default function Home() {
 					</h1>
 
 					<p className="max-w-xl text-balance text-lg text-muted-foreground leading-relaxed">
-						Free managed Postgres for agents and the people who build them — created, queried and
+						Free managed databases for agents and the people who build them — created, queried and
 						thrown away straight from your AI client, with no key to copy.
 					</p>
 

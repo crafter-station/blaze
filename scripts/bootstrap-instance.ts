@@ -23,7 +23,7 @@ import { Client } from "pg";
 import { encryptSecret } from "@/lib/crypto";
 import { ENGINE_CONFIG, isEngine } from "@/lib/engines/types";
 import { newId } from "@/lib/id";
-import { hardenPostgresInstance } from "@/lib/provision/postgres";
+import { isSupported, opsFor } from "@/lib/provision/engines";
 
 function required(name: string): string {
 	const value = process.env[name];
@@ -99,11 +99,11 @@ try {
 
 // Hardening is idempotent and cheap, and an instance that skipped it leaks every tenant's
 // database name to every other tenant — so it runs on every bootstrap, not just creation.
-if (engine === "postgres") {
+if (isSupported(engine)) {
 	const hardenUrl = process.env.HARDEN_URL;
 	if (hardenUrl) {
-		await hardenPostgresInstance(hardenUrl);
-		console.log("hardened  CONNECT on postgres/template1 revoked from PUBLIC");
+		await opsFor(engine).harden(hardenUrl);
+		console.log(`hardened  ${engine} instance locked down`);
 	} else {
 		console.log("hardened  SKIPPED — set HARDEN_URL to a reachable admin connection string");
 	}
