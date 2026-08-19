@@ -1,103 +1,103 @@
 {
-  "provider": "sapi",
-  "totalMs": 55558,
+  "provider": "openai",
+  "totalMs": 52610,
   "lines": [
     {
       "scene": "title",
       "text": "blaze gives you a managed Postgres database in about two hundred milliseconds.",
       "file": "audio/line-00.mp3",
       "startMs": 500,
-      "durationMs": 5799
+      "durationMs": 5712
     },
     {
       "scene": "title",
       "text": "Free, and built for agents.",
       "file": "audio/line-01.mp3",
-      "startMs": 6599,
-      "durationMs": 3082
+      "startMs": 6512,
+      "durationMs": 3048
     },
     {
       "scene": "setup",
       "text": "Paste one prompt into your agent and it configures itself.",
       "file": "audio/line-02.mp3",
-      "startMs": 10301,
-      "durationMs": 4441
+      "startMs": 10180,
+      "durationMs": 3864
     },
     {
       "scene": "setup",
       "text": "There is no API key to copy. It authorizes over OAuth, and you approve once.",
       "file": "audio/line-03.mp3",
-      "startMs": 15042,
-      "durationMs": 7314
+      "startMs": 14344,
+      "durationMs": 7968
     },
     {
       "scene": "create",
       "text": "Ask for a database, and you get a connection string back.",
       "file": "audio/line-04.mp3",
-      "startMs": 22976,
-      "durationMs": 4650
+      "startMs": 22932,
+      "durationMs": 3600
     },
     {
       "scene": "create",
       "text": "Two hundred and forty one milliseconds, measured in production.",
       "file": "audio/line-05.mp3",
-      "startMs": 27926,
-      "durationMs": 5016
+      "startMs": 26832,
+      "durationMs": 4368
     },
     {
       "scene": "query",
       "text": "The same agent runs SQL against it directly, with no driver in between.",
       "file": "audio/line-06.mp3",
-      "startMs": 33562,
-      "durationMs": 5878
+      "startMs": 31820,
+      "durationMs": 4968
     },
     {
       "scene": "query",
       "text": "Give it a time to live, and the database cleans itself up.",
       "file": "audio/line-07.mp3",
-      "startMs": 39740,
-      "durationMs": 4702
+      "startMs": 37088,
+      "durationMs": 5616
     },
     {
       "scene": "outro",
       "text": "Five databases, five hundred megabytes each, free while in alpha.",
       "file": "audio/line-08.mp3",
-      "startMs": 45062,
-      "durationMs": 6139
+      "startMs": 43324,
+      "durationMs": 5208
     },
     {
       "scene": "outro",
       "text": "blaze dot crafter dot run.",
       "file": "audio/line-09.mp3",
-      "startMs": 51501,
-      "durationMs": 2847
+      "startMs": 48832,
+      "durationMs": 2568
     }
   ],
   "scenes": [
     {
       "key": "title",
       "startMs": 0,
-      "durationMs": 9991
+      "durationMs": 9870
     },
     {
       "key": "setup",
-      "startMs": 9991,
-      "durationMs": 12675
+      "startMs": 9870,
+      "durationMs": 12752
     },
     {
       "key": "create",
-      "startMs": 22666,
-      "durationMs": 10586
+      "startMs": 22622,
+      "durationMs": 8888
     },
     {
       "key": "query",
-      "startMs": 33252,
-      "durationMs": 11500
+      "startMs": 31510,
+      "durationMs": 11504
     },
     {
       "key": "outro",
-      "startMs": 44752,
-      "durationMs": 9906
+      "startMs": 43014,
+      "durationMs": 8696
     }
   ]
 }
