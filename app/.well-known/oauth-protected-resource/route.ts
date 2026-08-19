@@ -16,10 +16,21 @@ const handler = protectedResourceHandlerClerk({
 	// Must be the canonical public MCP URI: this is the audience tokens are bound to, and
 	// deriving it from the request yields the container's address behind Traefik.
 	resource: mcpResourceUrl(),
-	// Only scopes Clerk can actually issue. Clients request exactly what this lists, and
-	// the authorization server rejects anything it cannot mint — advertising a custom
-	// scope like `blaze:write` breaks the flow rather than tightening it.
-	scopes_supported: ["openid", "profile", "email"],
+	/*
+	 * Exactly the scopes a dynamically-registered client on THIS instance is granted, which
+	 * is `profile email offline_access` — verified by reading back a registered client.
+	 *
+	 * Not `openid`. Clients request precisely what this document lists, and this instance
+	 * refuses `openid` to dynamic clients:
+	 *
+	 *   invalid_scope: The OAuth 2.0 Client is not allowed to request scope 'openid'
+	 *
+	 * So this list is not a policy choice — it has to mirror what the authorization server
+	 * will actually mint, and that differs per instance. `offline_access` is included
+	 * deliberately: without a refresh token the agent has to re-authorize whenever the
+	 * access token expires.
+	 */
+	scopes_supported: ["profile", "email", "offline_access"],
 });
 
 const options = metadataCorsOptionsRequestHandler();
