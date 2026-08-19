@@ -9,6 +9,7 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
+import { formatBytes } from "@/lib/format";
 import type { MetricPoint } from "@/lib/metrics";
 
 /**
@@ -18,25 +19,36 @@ import type { MetricPoint } from "@/lib/metrics";
  * chart they are in and what the axis says, not by hue. With a single series per chart
  * there is nothing for colour to disambiguate, so spending it here would only weaken the
  * one place colour still means something: status.
+ *
+ * `format` is a name, not a function. Functions cannot cross the Server -> Client
+ * component boundary, and passing one here threw a server error that only appeared once
+ * real samples existed — the empty state never rendered the chart, so the bug hid until
+ * the first data point landed.
  */
+
+type Formatter = "bytes" | "count";
 
 interface Props {
 	data: MetricPoint[];
 	metric: "sizeBytes" | "connections" | "commits";
-	format: (value: number) => string;
+	format: Formatter;
 }
+
+const FORMATTERS: Record<Formatter, (value: number) => string> = {
+	bytes: formatBytes,
+	count: (value) => String(Math.round(value)),
+};
 
 function formatTime(iso: string): string {
 	return new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 }
 
 export function MetricsChart({ data, metric, format }: Props) {
+	const formatValue = FORMATTERS[format];
+
 	// Gaps are meaningful: a null commit delta means the server restarted between samples,
 	// and connecting across it would draw a trend that never happened.
-	const points = data.map((point) => ({
-		ts: point.ts,
-		value: point[metric],
-	}));
+	const points = data.map((point) => ({ ts: point.ts, value: point[metric] }));
 
 	return (
 		<ResponsiveContainer width="100%" height={200}>
@@ -58,12 +70,12 @@ export function MetricsChart({ data, metric, format }: Props) {
 					minTickGap={40}
 				/>
 				<YAxis
-					tickFormatter={format}
+					tickFormatter={formatValue}
 					stroke="var(--muted-foreground)"
 					fontSize={11}
 					tickLine={false}
 					axisLine={false}
-					width={60}
+					width={64}
 				/>
 				<Tooltip
 					contentStyle={{
@@ -73,7 +85,7 @@ export function MetricsChart({ data, metric, format }: Props) {
 						fontSize: 12,
 					}}
 					labelFormatter={(value) => new Date(String(value)).toLocaleString()}
-					formatter={(value) => [format(Number(value)), ""]}
+					formatter={(value) => [formatValue(Number(value)), ""]}
 				/>
 				<Area
 					type="monotone"

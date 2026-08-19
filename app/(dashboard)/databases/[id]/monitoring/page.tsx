@@ -71,7 +71,7 @@ export default async function MonitoringPage({ params }: { params: Promise<{ id:
 						value={latest ? formatBytes(latest.sizeBytes) : "—"}
 						caption={`of ${formatBytes(LIMITS.STORAGE_BYTES)}`}
 					>
-						<MetricsChart data={history} metric="sizeBytes" format={formatBytes} />
+						<MetricsChart data={history} metric="sizeBytes" format="bytes" />
 					</Panel>
 
 					<Panel
@@ -79,11 +79,7 @@ export default async function MonitoringPage({ params }: { params: Promise<{ id:
 						value={latest ? String(latest.connections) : "—"}
 						caption={`of ${LIMITS.CONNECTION_LIMIT} allowed`}
 					>
-						<MetricsChart
-							data={history}
-							metric="connections"
-							format={(v) => String(Math.round(v))}
-						/>
+						<MetricsChart data={history} metric="connections" format="count" />
 					</Panel>
 
 					<Panel
@@ -91,7 +87,7 @@ export default async function MonitoringPage({ params }: { params: Promise<{ id:
 						value={latest?.commits !== null && latest ? String(latest.commits) : "—"}
 						caption="commits since previous sample"
 					>
-						<MetricsChart data={history} metric="commits" format={(v) => String(Math.round(v))} />
+						<MetricsChart data={history} metric="commits" format="count" />
 					</Panel>
 				</div>
 			)}
