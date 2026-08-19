@@ -13,6 +13,7 @@ export const metadata = {
 const SECTIONS = [
 	["quickstart", "Quickstart"],
 	["mcp", "MCP server"],
+	["clients", "Connect a client"],
 	["auth", "Authentication"],
 	["databases", "Databases"],
 	["query", "Running SQL"],
@@ -124,6 +125,52 @@ export default function DocsPage() {
 								["delete_database", "Permanent, no undo"],
 							]}
 						/>
+					</Section>
+
+					<Section id="clients" title="Connect a client">
+						<p>
+							Any MCP client that speaks Streamable HTTP works. Where a client supports OAuth you
+							never handle a key; where it does not, send an API key header instead.
+						</p>
+
+						<h3 className="pt-2 font-medium text-[15px]">Claude Code</h3>
+						<Code
+							code={`claude mcp add --transport http blaze ${MCP_URL}
+
+# no browser available? use a key instead:
+claude mcp add --transport http blaze ${MCP_URL} \
+  --header "Authorization: Bearer $BLAZE_KEY"`}
+						/>
+
+						<h3 className="pt-2 font-medium text-[15px]">Claude Desktop</h3>
+						<p className="text-muted-foreground text-sm">
+							Settings → Connectors → <em>Add custom connector</em>. Paste <Mono>{MCP_URL}</Mono>{" "}
+							and approve the browser prompt.
+						</p>
+
+						<h3 className="pt-2 font-medium text-[15px]">ChatGPT</h3>
+						<p className="text-muted-foreground text-sm">
+							Settings → Connectors → <em>Add</em> (developer mode must be enabled). Paste{" "}
+							<Mono>{MCP_URL}</Mono> and authorize.
+						</p>
+
+						<h3 className="pt-2 font-medium text-[15px]">Codex</h3>
+						<Code
+							label="~/.codex/config.toml"
+							code={`[mcp_servers.blaze]
+url = "${MCP_URL}"
+
+# or, without OAuth:
+# http_headers = { Authorization = "Bearer blz_live_..." }`}
+						/>
+
+						<Callout>
+							Browser-based clients read the <Mono>WWW-Authenticate</Mono> header on a 401 to start
+							the OAuth flow, so blaze sends CORS headers that expose it. The endpoint also answers{" "}
+							<Mono>405</Mono> to an SSE <Mono>GET</Mono> — it is stateless and never pushes
+							messages, and saying so is cleaner than leaving a stream open that will never carry
+							anything.
+						</Callout>
 					</Section>
 
 					<Section id="auth" title="Authentication">
