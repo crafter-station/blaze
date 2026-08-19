@@ -42,7 +42,7 @@ const WORKSPACE: NavItem[] = [
 	{ href: "/projects", label: "Overview", icon: LayoutGrid },
 	{ href: "/databases", label: "Databases", icon: Database },
 	{ href: "/api-keys", label: "API keys", icon: KeyRound },
-	{ href: "/settings", label: "Settings", icon: Settings, soon: true },
+	{ href: "/settings", label: "Settings", icon: Settings },
 ];
 
 const DATABASE: NavItem[] = [

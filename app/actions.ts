@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { AccountDeletionError, deleteAccount } from "@/lib/account";
 import { ApiKeyLimitError, createApiKey, revokeApiKey } from "@/lib/api-keys";
 import { requireUser } from "@/lib/auth";
 import { type Engine, isEngine } from "@/lib/engines/types";
@@ -108,5 +109,30 @@ export async function revokeApiKeyAction(keyId: string): Promise<ActionResult> {
 		return { ok: true };
 	} catch (error) {
 		return { ok: false, error: error instanceof Error ? error.message : "Failed to revoke" };
+	}
+}
+
+/**
+ * Delete the account and everything it owns.
+ *
+ * Guarded by a typed confirmation in the UI, and by `deleteAccount` aborting before it
+ * touches anything if a physical database cannot be dropped — a half-deleted account
+ * leaves tenant data on disk that nothing will ever reclaim.
+ */
+export async function deleteAccountAction(
+	confirmation: string,
+): Promise<ActionResult & { databasesDropped?: number }> {
+	const user = await requireUser();
+
+	if (confirmation.trim().toLowerCase() !== user.email.toLowerCase()) {
+		return { ok: false, error: "Type your email exactly to confirm." };
+	}
+
+	try {
+		const { databasesDropped } = await deleteAccount(user);
+		return { ok: true, databasesDropped };
+	} catch (error) {
+		if (error instanceof AccountDeletionError) return { ok: false, error: error.message };
+		return { ok: false, error: error instanceof Error ? error.message : "Failed to delete" };
 	}
 }
