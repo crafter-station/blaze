@@ -1,9 +1,15 @@
-FROM oven/bun:1 AS deps
+# Pinned to 1.2, not `oven/bun:1`.
+#
+# The floating tag resolved to Bun 1.3.14, which segfaults on exit *after* `next build`
+# finishes successfully — the build output is complete and correct, then the process dies
+# with SIGILL and Docker sees exit 132. Pinning also keeps the image's Bun aligned with
+# the version that produced bun.lock, so `--frozen-lockfile` stays meaningful.
+FROM oven/bun:1.2 AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
-FROM oven/bun:1 AS builder
+FROM oven/bun:1.2 AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
