@@ -62,12 +62,20 @@ export function CreateDatabase({ atQuota }: { atQuota: boolean }) {
 					defaultValue="postgres"
 					className="rounded-md border border-input bg-background px-2.5 py-1.5 text-sm outline-none focus:border-primary"
 				>
-					{ENGINES.map((engine) => (
-						<option key={engine} value={engine} disabled={engine !== "postgres"}>
-							{ENGINE_CONFIG[engine].label}
-							{engine !== "postgres" ? " — soon" : ""}
-						</option>
-					))}
+					{/*
+					 * Availability comes from the provisioner's own list, never a literal. A
+					 * hard-coded "postgres" here is how the dialog kept saying "soon" for engines
+					 * that had already shipped.
+					 */}
+					{ENGINES.map((engine) => {
+						const live = PROVISIONABLE.includes(engine);
+						return (
+							<option key={engine} value={engine} disabled={!live}>
+								{ENGINE_CONFIG[engine].label}
+								{live ? "" : " — soon"}
+							</option>
+						);
+					})}
 				</select>
 			</label>
 
