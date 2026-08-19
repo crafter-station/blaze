@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
-import { sampleAllDatabases } from "@/lib/metrics";
+import { sweepIfDue } from "@/lib/metrics";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -32,12 +32,12 @@ export async function POST(request: Request) {
 	}
 
 	const started = Date.now();
-	const results = await sampleAllDatabases();
 
-	return NextResponse.json({
-		sampled: results.length,
-		suspended: results.filter((r) => r.suspended).length,
-		errors: results.filter((r) => r.error).length,
-		tookMs: Date.now() - started,
-	});
+	// `force` bypasses the "is a sweep due yet" check but never the advisory lock, so a
+	// manual trigger can always get a fresh sample without being able to collide with the
+	// in-process scheduler.
+	const force = new URL(request.url).searchParams.get("force") === "1";
+	const result = await sweepIfDue(force);
+
+	return NextResponse.json({ ...result, tookMs: Date.now() - started });
 }

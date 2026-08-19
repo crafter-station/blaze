@@ -1,10 +1,10 @@
 import "server-only";
-import { and, desc, eq, gte, isNull } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import { adminConnectionString } from "./connection";
 import { db } from "./control/db";
 import { auditLog, databaseMetrics, databases } from "./control/schema";
 import { newId } from "./id";
-import { LIMITS } from "./limits";
+import { LIMITS, METRICS_INTERVAL_MS } from "./limits";
 import {
 	readPostgresStats,
 	resumePostgresDatabase,
@@ -181,4 +181,63 @@ export async function readHistory(databaseId: string, hours = 24): Promise<Metri
 			commits: delta === null || delta < 0 ? null : delta,
 		};
 	});
+}
+
+/**
+ * Arbitrary but fixed key identifying the metrics sweep to `pg_try_advisory_lock`.
+ * Changing it would let an old and a new deployment sweep concurrently.
+ */
+const SWEEP_LOCK_KEY = 4_120_251;
+
+export interface SweepResult {
+	ran: boolean;
+	reason?: "locked" | "too-soon";
+	sampled?: number;
+	suspended?: number;
+	errors?: number;
+}
+
+/**
+ * Run a sweep only if one is actually due, and only if no other instance is running one.
+ *
+ * Two guards, because they stop different things. The advisory lock stops two instances
+ * sweeping *simultaneously*; the freshness check stops them sweeping *alternately* and
+ * sampling twice as often as configured. With one replica neither fires, but the
+ * scheduler lives in the app process, so the moment anyone scales to two this is the
+ * difference between a correct interval and a silently doubled one.
+ *
+ * The lock is session-scoped and released explicitly in `finally`; if the process dies
+ * mid-sweep, Postgres drops it with the connection.
+ */
+export async function sweepIfDue(force = false): Promise<SweepResult> {
+	const locked = await db.execute<{ locked: boolean }>(
+		sql`select pg_try_advisory_lock(${SWEEP_LOCK_KEY}) as locked`,
+	);
+	if (!locked.rows[0]?.locked) return { ran: false, reason: "locked" };
+
+	try {
+		if (!force) {
+			const [latest] = await db
+				.select({ ts: databaseMetrics.ts })
+				.from(databaseMetrics)
+				.orderBy(desc(databaseMetrics.ts))
+				.limit(1);
+
+			// 80% of the interval: waking a little early should not skip a whole cycle.
+			const floor = METRICS_INTERVAL_MS * 0.8;
+			if (latest && Date.now() - latest.ts.getTime() < floor) {
+				return { ran: false, reason: "too-soon" };
+			}
+		}
+
+		const results = await sampleAllDatabases();
+		return {
+			ran: true,
+			sampled: results.length,
+			suspended: results.filter((r) => r.suspended).length,
+			errors: results.filter((r) => r.error).length,
+		};
+	} finally {
+		await db.execute(sql`select pg_advisory_unlock(${SWEEP_LOCK_KEY})`).catch(() => {});
+	}
 }
