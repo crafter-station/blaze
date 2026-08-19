@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# blaze
 
-## Getting Started
+Any database in 200ms. Free, agent-native, six engines.
 
-First, run the development server:
+Managed PostgreSQL, MySQL, MariaDB, MongoDB, Redis and libSQL, provisioned from a REST
+API, an MCP server, or the dashboard. Runs on a single Dokploy VPS.
+
+**[PLAN.md](./PLAN.md) is the source of truth** for what blaze is and why it is built this
+way. Read it before changing anything architectural — most of the non-obvious decisions
+(shared clusters, hostname-only connection strings, why Redis gets its own container) have
+a reason recorded there.
+
+## Stack
+
+Next.js 16 (App Router) · React 19 · Tailwind 4 · Bun · Drizzle + Postgres · Clerk · Biome
+
+## Getting started
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
+bun install
+cp .env.example .env.local     # then fill it in
+openssl rand -hex 32           # -> ENCRYPTION_KEY
+bun run db:migrate
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Layout
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+app/                  routes — marketing, dashboard, /v1 API
+lib/
+  control/            blaze's own database: schema + client
+  engines/            the six tenant drivers, and ENGINE_CONFIG (tenancy lives here)
+  dokploy/            container lifecycle, dedicated engines only
+  connection.ts       builds tenant connection strings — hostnames, never IPs
+  crypto.ts           AES-GCM for tenant passwords, SHA-256 for API keys
+  limits.ts           free-tier quotas
+drizzle/              generated migrations
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Two invariants worth knowing
 
-## Learn More
+**Connection strings never contain an IP address.** They are permanent once a customer
+pastes one into production, so every database is addressed through DNS we control
+(`pg.blaze.run`). This is what makes adding a node or moving a container a config change
+rather than a breaking change. `lib/connection.ts` is the only place they are built.
 
-To learn more about Next.js, take a look at the following resources:
+**Tenant passwords are encrypted, API keys are hashed.** Passwords have to round-trip
+because the dashboard renders a working connection string; API keys never do.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Scripts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+bun dev            bun run build       bun run lint
+bun run db:generate   db:migrate   db:push   db:studio
+```
