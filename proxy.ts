@@ -12,6 +12,7 @@ const isPublicRoute = createRouteMatcher([
 	"/sign-in(.*)",
 	"/sign-up(.*)",
 	"/waitlist(.*)",
+	"/docs(.*)",
 	"/v1(.*)",
 	"/api/health",
 	// Authenticates with its own shared secret, not a Clerk session.

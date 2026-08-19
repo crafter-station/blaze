@@ -4,6 +4,7 @@ import { Check, Copy, Loader2, Plus, TriangleAlert } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { createApiKeyAction, revokeApiKeyAction } from "@/app/actions";
+import { setupPrompt } from "@/lib/setup-prompt";
 
 export function CreateApiKey({ atLimit }: { atLimit: boolean }) {
 	const [pending, start] = useTransition();
@@ -113,6 +114,24 @@ function IssuedKey({ token, name, onDone }: { token: string; name: string; onDon
 						{copied ? "Copied" : "Copy"}
 					</button>
 				</div>
+				<details className="mt-5 rounded-lg border border-border bg-background p-4">
+					<summary className="cursor-pointer text-muted-foreground text-sm">
+						Set this up in Claude Code — copy a ready-made prompt
+					</summary>
+					<div className="mt-3 flex items-start gap-3">
+						<pre className="max-h-48 min-w-0 flex-1 overflow-auto whitespace-pre-wrap text-[12px] text-muted-foreground leading-relaxed">
+							{setupPrompt(token)}
+						</pre>
+						<button
+							type="button"
+							onClick={() => navigator.clipboard.writeText(setupPrompt(token))}
+							className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-muted-foreground text-xs transition-colors hover:bg-accent hover:text-foreground"
+						>
+							Copy prompt
+						</button>
+					</div>
+				</details>
+
 				<div className="mt-6 flex justify-end">
 					<button
 						type="button"
