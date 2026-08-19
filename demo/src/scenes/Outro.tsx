@@ -36,6 +36,26 @@ export const Outro: React.FC = () => {
 			>
 				blaze.crafter.run
 			</h2>
+
+			{/*
+			 * CC BY 4.0 requires attribution, and the obligation travels with the file — a
+			 * credit that only exists in the repo README is not attribution for a video posted
+			 * anywhere else. Kept small and low-contrast: it is a legal requirement, not a
+			 * design element.
+			 */}
+			<p
+				style={{
+					position: "absolute",
+					bottom: 34,
+					fontFamily: sans,
+					fontSize: 17,
+					color: theme.muted,
+					opacity: 0.55,
+					margin: 0,
+				}}
+			>
+				Music: “Screen Saver” by Kevin MacLeod (incompetech.com) · CC BY 4.0
+			</p>
 		</div>
 	);
 };

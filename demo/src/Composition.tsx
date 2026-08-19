@@ -50,8 +50,12 @@ export const BlazeDemo: React.FC = () => {
 				</Sequence>
 			))}
 
-			{/* Well under the voice — the bed should be felt, not heard. */}
-			<Audio src={staticFile("audio/music.mp3")} volume={0.16} />
+			{/*
+			 * Audible, but under the voice. The previous cut paired a -30 LUFS bed with 0.16
+			 * gain, which put the music below the noise floor of most playback — it was
+			 * effectively not there. The track is now normalised to -24 and mixed at 0.32.
+			 */}
+			<Audio src={staticFile("audio/music.mp3")} volume={0.32} />
 
 			<Captions />
 		</AbsoluteFill>

@@ -16,21 +16,37 @@
  * clip and all timings in one pass.
  */
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { SCRIPT, SCENE_ORDER } from "../src/script.ts";
 
 const KEY = process.env.OPENAI_API_KEY;
 const PROVIDER = KEY ? "openai" : "sapi";
 
-const GAP_MS = 300; // between lines within a scene
-const SCENE_GAP_MS = 620; // between scenes, so a cut has room to breathe
-const LEAD_IN_MS = 500; // silence before the first word
+/**
+ * Narration speed. 1.5x is deliberately applied *after* synthesis with ffmpeg's atempo
+ * rather than asked for in the prompt: TTS asked to "speak quickly" changes emphasis and
+ * swallows word endings, while atempo is a pure time-stretch that preserves pitch and
+ * articulation. Timings are then measured from the stretched clip, so nothing downstream
+ * needs to know this happened.
+ */
+const SPEED = Number(process.env.VOICE_SPEED ?? 1.5);
+
+// Gaps scale with the speed too — leaving them fixed would make a "faster" video that
+// spends the same amount of time saying nothing.
+const GAP_MS = Math.round(300 / SPEED);
+const SCENE_GAP_MS = Math.round(620 / SPEED);
+const LEAD_IN_MS = Math.round(500 / SPEED);
 
 const root = process.cwd();
 const outDir = join(root, "public", "audio");
-rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
+
+// Clear only the clips this script owns. Wiping the whole directory would also delete
+// the cached music source, forcing a 7MB re-download on every voice run.
+for (const name of readdirSync(outDir)) {
+	if (/^line-\d+\.mp3$/.test(name)) rmSync(join(outDir, name), { force: true });
+}
 
 const durationMs = (file) => {
 	const out = execFileSync("ffprobe", [
@@ -58,6 +74,17 @@ async function synthOpenAI(text, file) {
 	writeFileSync(file, Buffer.from(await response.arrayBuffer()));
 }
 
+/** Time-stretch in place. atempo preserves pitch, so 1.5x does not sound chipmunked. */
+function speedUp(file) {
+	if (SPEED === 1) return;
+	const tmp = file.replace(/\.mp3$/, ".raw.mp3");
+	renameSync(file, tmp);
+	execFileSync("ffmpeg", ["-y", "-i", tmp, "-filter:a", `atempo=${SPEED}`, "-b:a", "160k", file], {
+		stdio: ["ignore", "ignore", "ignore"],
+	});
+	unlinkSync(tmp);
+}
+
 /**
  * Windows SAPI writes WAV, so it is converted to mp3 to keep one format downstream.
  * Rate is nudged down: the default cadence is too brisk to read subtitles against.
@@ -82,7 +109,7 @@ function synthSapi(text, file) {
 	unlinkSync(wav);
 }
 
-console.log(`voice provider: ${PROVIDER}`);
+console.log(`voice provider: ${PROVIDER}  speed: ${SPEED}x`);
 
 const lines = [];
 let cursor = LEAD_IN_MS;
@@ -93,6 +120,7 @@ for (const [index, line] of SCRIPT.entries()) {
 
 	if (PROVIDER === "openai") await synthOpenAI(line.text, file);
 	else synthSapi(line.text, file);
+	speedUp(file);
 
 	if (previousScene && previousScene !== line.scene) cursor += SCENE_GAP_MS;
 	else if (previousScene) cursor += GAP_MS;

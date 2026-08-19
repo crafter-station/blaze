@@ -29,14 +29,25 @@ Two providers, chosen automatically:
 
 ## Music
 
-Generated with ffmpeg from sine tones — a slow Am–F–C–G pad, low-passed and normalised to
-sit under narration.
+“Screen Saver” by Kevin MacLeod (incompetech.com), licensed **CC BY 4.0**.
 
-Deliberately **not** a downloaded track. A royalty-free file still carries a licence with
-attribution terms, a source that can vanish, and something nobody in the repo can
-regenerate. Sine tones have no licence, reproduce identically anywhere, and re-cut to
-whatever length the narration turns out to be — which matters, because the script decides
-the duration, not the music.
+CC BY permits commercial use — which a product demo is — but **requires attribution**.
+The credit is burned into the outro frame so it travels with the file, and it must also
+appear wherever the video is published. A credit that exists only in this README is not
+attribution for a video posted to X.
+
+`npm run music` downloads the source once into `public/audio/source/` (gitignored — it is
+unmodified third-party work), then cuts it to the length the narration turned out to be,
+normalises to -24 LUFS and fades both ends.
+
+If you swap the track, update `ATTRIBUTION` in `scripts/generate-music.mjs` **and** the
+line in `src/scenes/Outro.tsx`.
+
+## Speed
+
+Narration runs at 1.5x, applied with ffmpeg's `atempo` after synthesis rather than by
+asking the model to talk faster — a TTS told to hurry swallows word endings, while
+`atempo` is a pure time-stretch that preserves pitch. Override with `VOICE_SPEED=1`.
 
 ## Requirements
 

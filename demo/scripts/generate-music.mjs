@@ -1,78 +1,79 @@
 /**
- * Synthesises a quiet ambient bed with ffmpeg.
- *
- * Deliberately generated rather than downloaded. A "royalty-free" track still carries a
- * licence with attribution terms, a source that can disappear, and a file nobody in the
- * repo can regenerate. Sine tones have no licence at all, reproduce identically on any
- * machine, and can be re-cut to whatever length the narration turns out to be — which is
- * the actual requirement, since the script decides the duration, not the music.
+ * Prepares the background track: fetch once, then cut it to the length the narration
+ * actually turned out to be.
  *
  *   node scripts/generate-music.mjs           # length read from public/timing.json
- *   node scripts/generate-music.mjs 72000     # or given explicitly, in ms
+ *   node scripts/generate-music.mjs 40000     # or given explicitly, in ms
+ *
+ * ## The track
+ *
+ * "Screen Saver" by Kevin MacLeod (incompetech.com), licensed **CC BY 4.0**.
+ * https://creativecommons.org/licenses/by/4.0/
+ *
+ * CC BY permits commercial use, which a product demo is, but it **requires attribution**.
+ * That obligation is not optional and does not disappear because the file sits in a repo:
+ * wherever this video is published, the description has to carry the credit in
+ * `ATTRIBUTION` below. That is the trade for using a real track instead of a synthesised
+ * pad — better music, one string you must not drop.
+ *
+ * The source mp3 is cached in `public/audio/source/` and gitignored: it is 7MB of
+ * unmodified third-party work, and the repo only needs the cut version it actually plays.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+
+export const ATTRIBUTION =
+	'"Screen Saver" by Kevin MacLeod (incompetech.com) — licensed under CC BY 4.0';
+
+const SOURCE_URL =
+	"https://incompetech.com/music/royalty-free/mp3-royaltyfree/Screen%20Saver.mp3";
 
 const root = process.cwd();
 const outDir = join(root, "public", "audio");
-const tmpDir = join(outDir, "tmp");
-mkdirSync(tmpDir, { recursive: true });
+const srcDir = join(outDir, "source");
+mkdirSync(srcDir, { recursive: true });
+
+const source = join(srcDir, "screen-saver.mp3");
+
+if (!existsSync(source)) {
+	console.log("downloading source track…");
+	const response = await fetch(SOURCE_URL, { headers: { "user-agent": "Mozilla/5.0" } });
+	if (!response.ok) throw new Error(`download failed: ${response.status}`);
+	writeFileSync(source, Buffer.from(await response.arrayBuffer()));
+}
 
 const timingPath = join(root, "public", "timing.json");
 const TOTAL_MS = Number(
 	process.argv[2] ??
-		(existsSync(timingPath) ? JSON.parse(readFileSync(timingPath, "utf8")).totalMs : 60000),
+		(existsSync(timingPath) ? JSON.parse(readFileSync(timingPath, "utf8")).totalMs : 40000),
 );
-const SECTION_S = TOTAL_MS / 1000 / 4;
-
-// Am – F – C – G, voiced low and wide so it reads as a pad rather than as notes.
-const CHORDS = [
-	[110.0, 164.81, 261.63],
-	[87.31, 130.81, 261.63],
-	[130.81, 196.0, 329.63],
-	[98.0, 146.83, 293.66],
-];
-
-const files = [];
-CHORDS.forEach((chord, i) => {
-	const file = join(tmpDir, `chord-${i}.wav`);
-	const inputs = chord.flatMap((f) => [
-		"-f", "lavfi",
-		"-t", String(SECTION_S),
-		"-i", `sine=frequency=${f}:sample_rate=48000`,
-	]);
-
-	// Mix the tones, roll off the top so it sits under speech, breathe with a slow
-	// tremolo, then cross-fade the section edges so chord changes are not audible as cuts.
-	const filter =
-		`${chord.map((_, j) => `[${j}:a]volume=0.33[t${j}]`).join(";")};` +
-		`${chord.map((_, j) => `[t${j}]`).join("")}` +
-		`amix=inputs=${chord.length}:normalize=0,` +
-		"lowpass=f=700,tremolo=f=0.12:d=0.35," +
-		`afade=t=in:st=0:d=2,afade=t=out:st=${(SECTION_S - 2).toFixed(2)}:d=2[out]`;
-
-	execFileSync("ffmpeg", ["-y", ...inputs, "-filter_complex", filter, "-map", "[out]", file], {
-		stdio: ["ignore", "ignore", "ignore"],
-	});
-	files.push(file);
-});
-
-const listFile = join(tmpDir, "list.txt");
-writeFileSync(listFile, files.map((f) => `file '${f.split("\\").join("/")}'`).join("\n"));
+const seconds = TOTAL_MS / 1000;
 
 const music = join(outDir, "music.mp3");
+
+/*
+ * loudnorm to -24 LUFS, not the -30 the synthesised pad used. That value was the reason
+ * the bed was inaudible in the last cut: -30 plus a 0.16 gain in Remotion put it far
+ * below the noise floor of most playback. -24 with a modest gain sits under the voice and
+ * can still be heard.
+ *
+ * The track is longer than the video, so it is simply trimmed — and faded at both ends so
+ * it neither starts on a transient nor stops mid-phrase.
+ */
 execFileSync("ffmpeg", [
 	"-y",
-	"-f", "concat", "-safe", "0", "-i", listFile,
-	// Sit well under the voice. The final balance is set in Remotion with volume().
+	"-t", seconds.toFixed(2),
+	"-i", source,
 	"-af",
-	`loudnorm=I=-30:TP=-6:LRA=11,afade=t=out:st=${(TOTAL_MS / 1000 - 3).toFixed(2)}:d=3`,
-	"-b:a", "160k",
+	[
+		"loudnorm=I=-24:TP=-3:LRA=11",
+		"afade=t=in:st=0:d=1.2",
+		`afade=t=out:st=${(seconds - 2.5).toFixed(2)}:d=2.5`,
+	].join(","),
+	"-b:a", "192k",
 	music,
 ], { stdio: ["ignore", "ignore", "ignore"] });
-
-rmSync(tmpDir, { recursive: true, force: true });
 
 const dur = execFileSync("ffprobe", [
 	"-v", "error",
@@ -81,4 +82,5 @@ const dur = execFileSync("ffprobe", [
 	music,
 ]).toString().trim();
 
-console.log(`wrote public/audio/music.mp3 — ${Number(dur).toFixed(1)}s (target ${(TOTAL_MS / 1000).toFixed(1)}s)`);
+console.log(`wrote public/audio/music.mp3 — ${Number(dur).toFixed(1)}s (target ${seconds.toFixed(1)}s)`);
+console.log(`attribution required: ${ATTRIBUTION}`);
