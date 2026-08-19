@@ -43,6 +43,13 @@ const schema = z.object({
 	DOKPLOY_API_URL: z.string().url().default("https://vps.crafter.run/api"),
 	DOKPLOY_API_KEY: z.string().optional(),
 
+	/**
+	 * Shared secret for the metrics cron endpoint. Optional: when unset the endpoint refuses
+	 * every request rather than running unauthenticated, because that endpoint can suspend
+	 * databases.
+	 */
+	CRON_SECRET: z.string().min(16).optional(),
+
 	NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 

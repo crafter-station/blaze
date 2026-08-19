@@ -1,0 +1,184 @@
+import "server-only";
+import { and, desc, eq, gte, isNull } from "drizzle-orm";
+import { adminConnectionString } from "./connection";
+import { db } from "./control/db";
+import { auditLog, databaseMetrics, databases } from "./control/schema";
+import { newId } from "./id";
+import { LIMITS } from "./limits";
+import {
+	readPostgresStats,
+	resumePostgresDatabase,
+	suspendPostgresDatabase,
+} from "./provision/postgres";
+
+/**
+ * Per-database metrics sampling.
+ *
+ * Dokploy's container metrics describe a whole shared instance, so they say nothing about
+ * an individual tenant. Numbers here come from engine-native stats instead.
+ *
+ * This is not only a chart feed. Postgres has no per-database disk quota, so this sampler
+ * is the *only* thing enforcing the storage limit — which is why it suspends rather than
+ * merely recording. A tenant that quietly grows past its cap between samples is the
+ * expected case, not a bug; the sample is what closes it.
+ */
+
+export interface SampleOutcome {
+	databaseId: string;
+	name: string;
+	sizeBytes: number;
+	connections: number;
+	suspended: boolean;
+	error?: string;
+}
+
+/** Sample one database, persist the point, and enforce the storage quota. */
+export async function sampleDatabase(databaseId: string): Promise<SampleOutcome> {
+	const record = await db.query.databases.findFirst({
+		where: and(eq(databases.id, databaseId), isNull(databases.deletedAt)),
+		with: { instance: true },
+	});
+	if (!record) throw new Error("Database not found");
+
+	const base: SampleOutcome = {
+		databaseId: record.id,
+		name: record.name,
+		sizeBytes: record.sizeBytes,
+		connections: 0,
+		suspended: record.status === "suspended",
+	};
+
+	if (record.engine !== "postgres") return base;
+
+	const adminUrl = adminConnectionString(
+		record.engine,
+		record.instance.internalHost,
+		record.instance.port,
+		record.instance.adminUser,
+		record.instance.adminPasswordEnc,
+	);
+
+	let stats: Awaited<ReturnType<typeof readPostgresStats>>;
+	try {
+		stats = await readPostgresStats(adminUrl, record.dbName);
+	} catch (error) {
+		// One unreachable database must not abort a sweep over all of them.
+		return { ...base, error: error instanceof Error ? error.message : "unreachable" };
+	}
+
+	await db.insert(databaseMetrics).values({
+		databaseId: record.id,
+		sizeBytes: stats.sizeBytes,
+		connections: stats.connections,
+		xactCommit: stats.xactCommit,
+	});
+
+	await db.update(databases).set({ sizeBytes: stats.sizeBytes }).where(eq(databases.id, record.id));
+
+	let suspended = record.status === "suspended";
+
+	if (stats.sizeBytes > LIMITS.STORAGE_BYTES && record.status === "active") {
+		// Data is kept — connections are refused, nothing is dropped. Over quota is a
+		// recoverable state the user can fix, not grounds for destroying their database.
+		await suspendPostgresDatabase(adminUrl, record.dbName, record.roleName);
+		await db.update(databases).set({ status: "suspended" }).where(eq(databases.id, record.id));
+
+		await db.insert(auditLog).values({
+			id: newId("db"),
+			actorUserId: null,
+			action: "database.suspend",
+			targetType: "database",
+			targetId: record.id,
+			metadata: { reason: "storage_quota", sizeBytes: stats.sizeBytes },
+		});
+		suspended = true;
+	} else if (stats.sizeBytes <= LIMITS.STORAGE_BYTES && record.status === "suspended") {
+		// Suspension has to be self-clearing. A tenant who frees space and stays locked out
+		// would need a human to notice, which for a free service means never.
+		await resumePostgresDatabase(adminUrl, record.dbName, record.roleName);
+		await db.update(databases).set({ status: "active" }).where(eq(databases.id, record.id));
+
+		await db.insert(auditLog).values({
+			id: newId("db"),
+			actorUserId: null,
+			action: "database.resume",
+			targetType: "database",
+			targetId: record.id,
+			metadata: { reason: "under_quota", sizeBytes: stats.sizeBytes },
+		});
+		suspended = false;
+	}
+
+	return {
+		databaseId: record.id,
+		name: record.name,
+		sizeBytes: stats.sizeBytes,
+		connections: stats.connections,
+		suspended,
+	};
+}
+
+/** Sample every live database. Errors are collected, never thrown — one bad tenant
+ *  must not stop the sweep that enforces everyone else's quota. */
+export async function sampleAllDatabases(): Promise<SampleOutcome[]> {
+	const live = await db
+		.select({ id: databases.id })
+		.from(databases)
+		.where(isNull(databases.deletedAt));
+
+	const results: SampleOutcome[] = [];
+	for (const { id } of live) {
+		try {
+			results.push(await sampleDatabase(id));
+		} catch (error) {
+			results.push({
+				databaseId: id,
+				name: id,
+				sizeBytes: 0,
+				connections: 0,
+				suspended: false,
+				error: error instanceof Error ? error.message : "failed",
+			});
+		}
+	}
+	return results;
+}
+
+export interface MetricPoint {
+	ts: string;
+	sizeBytes: number;
+	connections: number;
+	/** Commits since the previous sample. Null for the first point, which has no delta. */
+	commits: number | null;
+}
+
+/**
+ * History for one database.
+ *
+ * `xact_commit` is a cumulative counter that resets when the server restarts, so it is
+ * returned as a delta between consecutive samples. A negative delta means a restart
+ * happened, and is reported as null rather than a nonsensical spike downward.
+ */
+export async function readHistory(databaseId: string, hours = 24): Promise<MetricPoint[]> {
+	const since = new Date(Date.now() - hours * 3_600_000);
+
+	const rows = await db
+		.select()
+		.from(databaseMetrics)
+		.where(and(eq(databaseMetrics.databaseId, databaseId), gte(databaseMetrics.ts, since)))
+		.orderBy(desc(databaseMetrics.ts))
+		.limit(500);
+
+	const ordered = rows.reverse();
+
+	return ordered.map((row, index) => {
+		const previous = index > 0 ? ordered[index - 1] : null;
+		const delta = previous ? row.xactCommit - previous.xactCommit : null;
+		return {
+			ts: row.ts.toISOString(),
+			sizeBytes: row.sizeBytes,
+			connections: row.connections,
+			commits: delta === null || delta < 0 ? null : delta,
+		};
+	});
+}

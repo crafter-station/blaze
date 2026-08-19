@@ -14,6 +14,8 @@ const isPublicRoute = createRouteMatcher([
 	"/waitlist(.*)",
 	"/v1(.*)",
 	"/api/health",
+	// Authenticates with its own shared secret, not a Clerk session.
+	"/api/cron(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

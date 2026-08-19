@@ -5,9 +5,11 @@ import { AccountDeletionError, deleteAccount } from "@/lib/account";
 import { ApiKeyLimitError, createApiKey, revokeApiKey } from "@/lib/api-keys";
 import { requireUser } from "@/lib/auth";
 import { type Engine, isEngine } from "@/lib/engines/types";
+import { sampleDatabase } from "@/lib/metrics";
 import {
 	createDatabase,
 	destroyDatabase,
+	getOwnedDatabase,
 	QuotaExceededError,
 	resetDatabasePassword,
 } from "@/lib/provision";
@@ -134,5 +136,28 @@ export async function deleteAccountAction(
 	} catch (error) {
 		if (error instanceof AccountDeletionError) return { ok: false, error: error.message };
 		return { ok: false, error: error instanceof Error ? error.message : "Failed to delete" };
+	}
+}
+
+/**
+ * Take a metrics sample on demand.
+ *
+ * The cron sweep runs every 5 minutes, which is the right cadence for quota enforcement
+ * and the wrong one for someone who just created a database and wants to see a chart.
+ * Ownership is checked here because this reaches out to the engine — an unauthenticated
+ * caller could otherwise use it to probe instances.
+ */
+export async function sampleDatabaseAction(databaseId: string): Promise<ActionResult> {
+	const user = await requireUser();
+
+	const owned = await getOwnedDatabase(user.id, databaseId);
+	if (!owned) return { ok: false, error: "Database not found" };
+
+	try {
+		const result = await sampleDatabase(databaseId);
+		revalidatePath(`/databases/${databaseId}/monitoring`);
+		return result.error ? { ok: false, error: result.error } : { ok: true };
+	} catch (error) {
+		return { ok: false, error: error instanceof Error ? error.message : "Failed to sample" };
 	}
 }
