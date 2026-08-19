@@ -2,6 +2,27 @@
 
 Live on the Crafter VPS (`95.111.248.246`) under the Dokploy project **blaze**.
 
+**Verified** (via `--resolve`, since DNS does not exist yet):
+
+| Check | Result |
+|---|---|
+| `GET /api/health` | `200 {"status":"ok"}` — includes a real `select 1` against the control plane |
+| `GET /` | `200`, landing page renders |
+| `GET /sign-in` | `200`, Clerk renders |
+| `GET /projects` | `307` — `proxy.ts` is enforcing auth |
+
+## Build notes
+
+The build runs under **Node, not Bun**. Bun cannot build this app: Next 16's Turbopack
+production build fails under Bun's runtime while collecting page data
+(`Expected CommonJS module to have a function wrapper`), and then segfaults on exit.
+Reproduced on Bun 1.3.14 and 1.2.23. Bun still does `bun install` and owns `bun.lock`.
+
+Secrets are **not** build args. `lib/env.ts` and `lib/control/db.ts` validate and connect
+lazily so `next build` — which imports every route module — does not need runtime secrets.
+Only `NEXT_PUBLIC_*` is passed at build time, because Next inlines it into the client
+bundle.
+
 ## What exists
 
 | Resource | Dokploy id | Address | Purpose |
