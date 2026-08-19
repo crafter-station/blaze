@@ -2,8 +2,10 @@
 
 import {
 	Activity,
+	Check,
 	ChevronsLeft,
 	ChevronsRight,
+	ChevronsUpDown,
 	Database,
 	Eye,
 	KeyRound,
@@ -21,15 +23,20 @@ import { cn } from "@/lib/utils";
 
 /**
  * Sidebar following Neon's information architecture: a workspace-scoped section, then a
- * resource-scoped section, then utilities pinned to the bottom.
+ * section scoped to the resource you are currently inside, then utilities at the bottom.
  *
- * The IA is the part worth copying — scoping navigation to the thing you are currently
- * looking at is what makes a console with this much surface area navigable. The palette
- * and copy are ours (PLAN.md Q10).
+ * The IA is the part worth copying — scoping navigation to the thing you are looking at is
+ * what makes a console with this much surface area navigable. Palette and copy are ours
+ * (PLAN.md Q10).
  *
- * Neon's second section is scoped to a branch. blaze has no branches, so it scopes to the
- * selected database instead — same shape, different noun.
+ * Neon's second section scopes to a branch and switches with a dropdown. blaze has no
+ * branches, so it scopes to a database. Same shape, different noun.
  */
+
+export interface SidebarDatabase {
+	id: string;
+	name: string;
+}
 
 interface NavItem {
 	href: string;
@@ -45,16 +52,27 @@ const WORKSPACE: NavItem[] = [
 	{ href: "/settings", label: "Settings", icon: Settings },
 ];
 
-const DATABASE: NavItem[] = [
-	{ href: "/db/overview", label: "Overview", icon: Eye, soon: true },
-	{ href: "/db/monitoring", label: "Monitoring", icon: Activity, soon: true },
-	{ href: "/db/sql", label: "SQL Editor", icon: SquareTerminal, soon: true },
-	{ href: "/db/tables", label: "Tables", icon: Table2, soon: true },
-];
+function databaseNav(id: string): NavItem[] {
+	return [
+		{ href: `/databases/${id}`, label: "Overview", icon: Eye },
+		{ href: `/databases/${id}/monitoring`, label: "Monitoring", icon: Activity, soon: true },
+		{ href: `/databases/${id}/sql`, label: "SQL Editor", icon: SquareTerminal, soon: true },
+		{ href: `/databases/${id}/tables`, label: "Tables", icon: Table2, soon: true },
+	];
+}
 
-export function Sidebar() {
+/** `/databases/db_x7f2/monitoring` -> `db_x7f2`; anything else -> null. */
+function currentDatabaseId(pathname: string): string | null {
+	const match = pathname.match(/^\/databases\/([^/]+)/);
+	return match ? match[1] : null;
+}
+
+export function Sidebar({ databases }: { databases: SidebarDatabase[] }) {
 	const pathname = usePathname();
 	const [collapsed, setCollapsed] = useState(false);
+
+	const activeId = currentDatabaseId(pathname);
+	const active = databases.find((d) => d.id === activeId) ?? null;
 
 	return (
 		<aside
@@ -70,11 +88,32 @@ export function Sidebar() {
 					))}
 				</Section>
 
-				<Section label="Database" collapsed={collapsed} className="mt-7">
-					{DATABASE.map((item) => (
-						<Item key={item.href} item={item} pathname={pathname} collapsed={collapsed} />
-					))}
-				</Section>
+				<div className="mt-7">
+					{!collapsed && (
+						<div className="mb-2 flex items-center justify-between gap-2 px-3">
+							<p className="font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
+								Database
+							</p>
+							{active && <DatabaseSwitcher databases={databases} active={active} />}
+						</div>
+					)}
+
+					{active ? (
+						<div className="space-y-0.5">
+							{databaseNav(active.id).map((item) => (
+								<Item key={item.href} item={item} pathname={pathname} collapsed={collapsed} />
+							))}
+						</div>
+					) : (
+						!collapsed && (
+							// Rendered rather than hidden: a section that vanishes makes the console look
+							// like it changed shape. Saying why beats an unexplained gap.
+							<p className="px-3 py-2 text-muted-foreground/60 text-xs leading-relaxed">
+								Open a database to see its overview, monitoring and editor.
+							</p>
+						)
+					)}
+				</div>
 			</nav>
 
 			<div className="border-border border-t px-3 py-3">
@@ -104,19 +143,70 @@ export function Sidebar() {
 	);
 }
 
+/** Neon's branch dropdown, scoped to databases. */
+function DatabaseSwitcher({
+	databases,
+	active,
+}: {
+	databases: SidebarDatabase[];
+	active: SidebarDatabase;
+}) {
+	const [open, setOpen] = useState(false);
+
+	// With one database there is nothing to switch to, and a dropdown that only ever shows
+	// the thing you are already looking at is noise.
+	if (databases.length < 2) return null;
+
+	return (
+		<div className="relative">
+			<button
+				type="button"
+				onClick={() => setOpen(!open)}
+				className="flex max-w-[130px] items-center gap-1.5 rounded-md px-1.5 py-1 text-muted-foreground text-xs transition-colors hover:bg-sidebar-accent hover:text-foreground"
+			>
+				<span className="truncate">{active.name}</span>
+				<ChevronsUpDown className="size-3 shrink-0" />
+			</button>
+
+			{open && (
+				<>
+					{/* Click-away layer, so closing needs no global listener. */}
+					<button
+						type="button"
+						aria-label="Close database switcher"
+						className="fixed inset-0 z-10 cursor-default"
+						onClick={() => setOpen(false)}
+					/>
+					<div className="absolute right-0 z-20 mt-1 max-h-72 w-56 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-xl">
+						{databases.map((database) => (
+							<Link
+								key={database.id}
+								href={`/databases/${database.id}`}
+								onClick={() => setOpen(false)}
+								className="flex items-center gap-2 rounded-md px-2.5 py-2 text-sm transition-colors hover:bg-accent"
+							>
+								<span className="flex-1 truncate">{database.name}</span>
+								{database.id === active.id && <Check className="size-3.5 shrink-0" />}
+							</Link>
+						))}
+					</div>
+				</>
+			)}
+		</div>
+	);
+}
+
 function Section({
 	label,
 	collapsed,
-	className,
 	children,
 }: {
 	label: string;
 	collapsed: boolean;
-	className?: string;
 	children: React.ReactNode;
 }) {
 	return (
-		<div className={className}>
+		<div>
 			{!collapsed && (
 				<p className="mb-2 px-3 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
 					{label}
@@ -136,14 +226,14 @@ function Item({
 	pathname: string;
 	collapsed: boolean;
 }) {
-	// Prefix match, not equality: a detail page like /databases/db_x7f2 is still "in"
-	// Databases, and a sidebar that goes blank when you drill in loses your place.
-	const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
 	const Icon = item.icon;
 
-	// Unbuilt destinations render as disabled rather than being hidden: the shape of the
-	// product is part of the information, and a link that 404s is worse than one that says
-	// "soon" — that is precisely the bug that made sign-in dead-end on /projects.
+	// Exact match, with one exception. A general prefix match would light up the database
+	// Overview (/databases/:id) while you are on /databases/:id/monitoring, marking two
+	// rows active at once — so only the workspace "Databases" row opts into prefix matching.
+	const active =
+		pathname === item.href || (item.href === "/databases" && pathname.startsWith("/databases/"));
+
 	if (item.soon) {
 		return (
 			<span
@@ -173,7 +263,7 @@ function Item({
 					: "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
 			)}
 		>
-			<Icon className={cn("size-[18px] shrink-0", active && "text-primary")} />
+			<Icon className="size-[18px] shrink-0" />
 			{!collapsed && <span>{item.label}</span>}
 		</Link>
 	);

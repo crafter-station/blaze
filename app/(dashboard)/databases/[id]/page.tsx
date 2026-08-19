@@ -1,4 +1,4 @@
-import { CalendarDays, Database, KeyRound, Server } from "lucide-react";
+import { CalendarDays, Database, KeyRound, Server, UserRound } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ConnectionString } from "@/components/connection-string";
@@ -65,10 +65,7 @@ export default async function DatabaseDetailPage({ params }: { params: Promise<{
 						{expiry && <span className="text-warning">Auto-deletes {expiry}</span>}
 					</p>
 				</div>
-				<div className="flex items-center gap-3">
-					<ResetPassword id={record.id} />
-					<DeleteDatabase id={record.id} name={record.name} redirectTo="/databases" />
-				</div>
+				<DeleteDatabase id={record.id} name={record.name} redirectTo="/databases" />
 			</div>
 
 			<section className="rounded-xl border border-border bg-card p-7">
@@ -123,20 +120,44 @@ export default async function DatabaseDetailPage({ params }: { params: Promise<{
 
 				<section className="rounded-xl border border-border bg-card">
 					<div className="flex items-center gap-3 border-border border-b px-7 py-5">
-						<KeyRound className="size-[18px] text-muted-foreground" />
-						<h2 className="font-medium">Limits</h2>
+						<UserRound className="size-[18px] text-muted-foreground" />
+						<h2 className="font-medium">Role</h2>
 					</div>
-					<dl className="divide-y divide-border">
-						<Row label="Connections" value={`${LIMITS.CONNECTION_LIMIT} concurrent`} />
-						<Row label="Statement timeout" value={`${LIMITS.STATEMENT_TIMEOUT_MS / 1000}s`} />
-						<Row
-							label="Idle in transaction"
-							value={`${LIMITS.IDLE_TRANSACTION_TIMEOUT_MS / 1000}s`}
-						/>
-						<Row label="Instance" value={record.instance.internalHost} mono />
-					</dl>
+					<div className="px-7 py-6">
+						<div className="flex flex-wrap items-center justify-between gap-4">
+							<div className="min-w-0">
+								<p className="truncate font-mono text-sm">{record.roleName}</p>
+								<p className="mt-1.5 flex items-center gap-1.5 text-muted-foreground text-xs">
+									<span className="size-1.5 rounded-full bg-success" />
+									Has password
+								</p>
+							</div>
+							<ResetPassword id={record.id} />
+						</div>
+						<p className="mt-5 text-muted-foreground text-xs">
+							Owns this database and nothing else on the instance. It cannot reach another tenant's
+							database, or the maintenance database — verified by
+							<span className="font-mono"> scripts/smoke-provision.ts</span>.
+						</p>
+					</div>
 				</section>
 			</div>
+
+			<section className="rounded-xl border border-border bg-card">
+				<div className="flex items-center gap-3 border-border border-b px-7 py-5">
+					<KeyRound className="size-[18px] text-muted-foreground" />
+					<h2 className="font-medium">Limits</h2>
+				</div>
+				<dl className="divide-y divide-border">
+					<Row label="Connections" value={`${LIMITS.CONNECTION_LIMIT} concurrent`} />
+					<Row label="Statement timeout" value={`${LIMITS.STATEMENT_TIMEOUT_MS / 1000}s`} />
+					<Row
+						label="Idle in transaction"
+						value={`${LIMITS.IDLE_TRANSACTION_TIMEOUT_MS / 1000}s`}
+					/>
+					<Row label="Instance" value={record.instance.internalHost} mono />
+				</dl>
+			</section>
 		</div>
 	);
 }
