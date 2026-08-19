@@ -10,3 +10,7 @@ node_modules
 .idea
 *.log
 tsconfig.tsbuildinfo
+
+# The Remotion demo is a separate project. It is not part of the web app, and its audio
+# assets and cached source track would add tens of MB to the build context for nothing.
+demo

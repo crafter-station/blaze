@@ -30,5 +30,11 @@
 		".next/dev/types/**/*.ts",
 		"**/*.mts"
 	],
-	"exclude": ["node_modules"]
+	/*
+	 * `demo` is a separate Remotion project with its own package.json and node_modules.
+	 * The include globs above sweep the whole tree, so without this the web app's type
+	 * check tries to resolve `remotion` against the app's dependencies and fails — which is
+	 * exactly what broke the Docker build, where demo's node_modules are not installed.
+	 */
+	"exclude": ["node_modules", "demo"]
 }

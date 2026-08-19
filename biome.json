@@ -39,7 +39,9 @@
 			"**/*.css",
 			"!!**/.next",
 			"!!**/node_modules",
-			"!!**/.claude"
+			"!!**/demo",
+			"!!**/.claude",
+			"!!**/.agents"
 		]
 	}
 }
