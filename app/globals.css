@@ -140,3 +140,61 @@
 		font-variant-numeric: tabular-nums;
 	}
 }
+
+/*
+ * Landing backdrop motion.
+ *
+ * Both layers translate a double-height element from -50% to 0, so the tile boundary
+ * never enters the viewport and the loop has no visible seam. The two speeds differ on
+ * purpose: matched speeds read as one flat sheet, mismatched ones read as depth.
+ */
+@keyframes blaze-drift {
+	from {
+		transform: translate3d(0, -50%, 0);
+	}
+	to {
+		transform: translate3d(0, 0, 0);
+	}
+}
+
+@keyframes blaze-pulse {
+	0%,
+	100% {
+		filter: brightness(1);
+	}
+	50% {
+		filter: brightness(1.9);
+	}
+}
+
+.blaze-drift {
+	animation: blaze-drift 58s linear infinite;
+	will-change: transform;
+}
+
+.blaze-drift-slow {
+	animation: blaze-drift 96s linear infinite;
+	will-change: transform;
+}
+
+.blaze-pulse {
+	animation: blaze-pulse 9s ease-in-out infinite;
+}
+
+/*
+ * A full-viewport field in constant motion is exactly the kind of thing that triggers
+ * vestibular symptoms. The composition is built to work standing still, so this simply
+ * stops it rather than substituting a lesser animation.
+ */
+@media (prefers-reduced-motion: reduce) {
+	.blaze-drift,
+	.blaze-drift-slow,
+	.blaze-pulse {
+		animation: none;
+	}
+
+	.blaze-drift,
+	.blaze-drift-slow {
+		transform: translate3d(0, -25%, 0);
+	}
+}
