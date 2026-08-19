@@ -198,3 +198,33 @@
 		transform: translate3d(0, -25%, 0);
 	}
 }
+
+/*
+ * Sparkle twinkle for the landing CTA.
+ *
+ * Scale and opacity together rather than opacity alone: a star that only fades reads as a
+ * rendering glitch, while one that also shrinks reads as a twinkle. Staggered per element
+ * via inline animation-delay so they never pulse in unison.
+ */
+@keyframes blaze-sparkle {
+	0%,
+	100% {
+		opacity: 0.25;
+		transform: scale(0.7) rotate(0deg);
+	}
+	50% {
+		opacity: 1;
+		transform: scale(1) rotate(20deg);
+	}
+}
+
+.blaze-sparkle {
+	animation: blaze-sparkle 3.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.blaze-sparkle {
+		animation: none;
+		opacity: 0.65;
+	}
+}
