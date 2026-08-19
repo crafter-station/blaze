@@ -23,14 +23,14 @@ function noise(index: number): number {
 	return value - Math.floor(value);
 }
 
-const HIGHLIGHTS = Array.from({ length: 44 }, (_, index) => {
+const HIGHLIGHTS = Array.from({ length: 72 }, (_, index) => {
 	const a = noise(index);
 	const b = noise(index + 97);
 	const c = noise(index + 211);
 	return {
 		left: `${(a * 100).toFixed(2)}%`,
 		top: `${(b * 200).toFixed(2)}%`,
-		opacity: 0.05 + c * 0.22,
+		opacity: 0.16 + c * 0.42,
 		// Staggered so they do not pulse in unison.
 		delay: `-${(c * 18).toFixed(2)}s`,
 	};
@@ -40,10 +40,10 @@ export function GridBackdrop() {
 	return (
 		<div
 			aria-hidden="true"
-			className="pointer-events-none fixed inset-0 -z-10 overflow-hidden [mask-image:radial-gradient(ellipse_75%_60%_at_50%_35%,black,transparent)]"
+			className="pointer-events-none fixed inset-0 -z-10 overflow-hidden [mask-image:radial-gradient(ellipse_95%_80%_at_50%_38%,black_35%,transparent_100%)]"
 		>
 			{/* Base field: one <pattern>, tiled, twice viewport height so the loop is seamless. */}
-			<svg className="blaze-drift absolute inset-x-0 top-0 h-[200%] w-full text-foreground/[0.07]">
+			<svg className="blaze-drift absolute inset-x-0 top-0 h-[200%] w-full text-foreground/[0.16]">
 				<title>Decorative grid</title>
 				<defs>
 					<pattern id="blaze-cells" width="26" height="26" patternUnits="userSpaceOnUse">
@@ -70,7 +70,7 @@ export function GridBackdrop() {
 			</div>
 
 			{/* Grounding wash, so the field never fights text contrast at the bottom. */}
-			<div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-background to-transparent" />
+			<div className="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-background via-background/60 to-transparent" />
 		</div>
 	);
 }
