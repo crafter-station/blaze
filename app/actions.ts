@@ -13,6 +13,7 @@ import {
 	QuotaExceededError,
 	resetDatabasePassword,
 } from "@/lib/provision";
+import { type QueryOutcome, runTenantQuery } from "@/lib/query";
 
 export interface ActionResult {
 	ok: boolean;
@@ -160,4 +161,26 @@ export async function sampleDatabaseAction(databaseId: string): Promise<ActionRe
 	} catch (error) {
 		return { ok: false, error: error instanceof Error ? error.message : "Failed to sample" };
 	}
+}
+
+/**
+ * Execute SQL against a database the caller owns.
+ *
+ * Ownership is checked here; everything else is enforced by the database itself, because
+ * the query runs as the tenant's own role rather than as the instance admin. There is
+ * deliberately no SQL allow-list or keyword filter: this is the user's own database and
+ * DROP TABLE is a legitimate thing to want. Blocking statements by pattern would give the
+ * appearance of safety while being trivially bypassed.
+ */
+export async function runQueryAction(databaseId: string, sql: string): Promise<QueryOutcome> {
+	const user = await requireUser();
+
+	const record = await getOwnedDatabase(user.id, databaseId);
+	if (!record) return { ok: false, error: "Database not found" };
+
+	if (record.status === "suspended") {
+		return { ok: false, error: "This database is suspended — free storage to resume it." };
+	}
+
+	return runTenantQuery(record, sql);
 }

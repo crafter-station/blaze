@@ -105,3 +105,32 @@ export function adminConnectionString(
 	const db = database ?? "postgres";
 	return `${urlScheme}://${user}:${password}@${internalHost}:${port}/${db}?sslmode=no-verify`;
 }
+
+/**
+ * Connection string blaze uses to run a tenant's own SQL on their behalf.
+ *
+ * Uses the tenant's role and password, **never** the instance admin. This is the whole
+ * security model of the SQL editor: queries run with exactly the privileges that role has,
+ * so the isolation already proven for direct connections — no reaching another tenant's
+ * database, no maintenance database, statement timeout and connection limit applied —
+ * holds identically here. Running editor queries as the admin superuser would turn a
+ * convenience feature into a complete tenancy bypass, and `COPY ... FROM PROGRAM` into
+ * remote code execution on the instance.
+ *
+ * Goes over the internal host so the traffic stays on the Docker network rather than
+ * leaving the box and coming back. `no-verify` because the instance certificate is
+ * self-signed; the hop is still encrypted, and the server refuses plaintext.
+ */
+export function tenantInternalConnectionString(
+	engine: Engine,
+	internalHost: string,
+	port: number,
+	dbName: string,
+	roleName: string,
+	passwordEnc: string,
+): string {
+	const { urlScheme } = ENGINE_CONFIG[engine];
+	const password = encodeURIComponent(decryptSecret(passwordEnc));
+	const user = encodeURIComponent(roleName);
+	return `${urlScheme}://${user}:${password}@${internalHost}:${port}/${dbName}?sslmode=no-verify`;
+}

@@ -56,7 +56,7 @@ function databaseNav(id: string): NavItem[] {
 	return [
 		{ href: `/databases/${id}`, label: "Overview", icon: Eye },
 		{ href: `/databases/${id}/monitoring`, label: "Monitoring", icon: Activity },
-		{ href: `/databases/${id}/sql`, label: "SQL Editor", icon: SquareTerminal, soon: true },
+		{ href: `/databases/${id}/sql`, label: "SQL Editor", icon: SquareTerminal },
 		{ href: `/databases/${id}/tables`, label: "Tables", icon: Table2, soon: true },
 	];
 }
