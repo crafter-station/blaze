@@ -1,19 +1,33 @@
-import { UserButton } from "@clerk/nextjs";
-import Link from "next/link";
+import { sql } from "drizzle-orm";
+import { Sidebar } from "@/components/dashboard/sidebar";
+import { TopBar } from "@/components/dashboard/topbar";
+import { requireUser } from "@/lib/auth";
+import { db } from "@/lib/control/db";
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export const dynamic = "force-dynamic";
+
+async function controlPlaneHealthy(): Promise<boolean> {
+	try {
+		await db.execute(sql`select 1`);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+	const user = await requireUser();
+	const healthy = await controlPlaneHealthy();
+
 	return (
-		<div className="min-h-screen">
-			<header className="sticky top-0 z-10 border-border border-b bg-background/80 backdrop-blur">
-				<div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
-					<Link href="/projects" className="flex items-center gap-2">
-						<span className="size-2.5 rounded-full bg-primary" />
-						<span className="font-semibold tracking-tight">blaze</span>
-					</Link>
-					<UserButton />
-				</div>
-			</header>
-			<main className="mx-auto max-w-6xl px-6 py-10">{children}</main>
+		<div className="flex min-h-screen">
+			<Sidebar />
+			<div className="flex min-w-0 flex-1 flex-col">
+				<TopBar workspace={user.email.split("@")[0]} plan={user.plan} healthy={healthy} />
+				<main className="flex-1 px-10 py-10">
+					<div className="mx-auto max-w-[1200px]">{children}</div>
+				</main>
+			</div>
 		</div>
 	);
 }

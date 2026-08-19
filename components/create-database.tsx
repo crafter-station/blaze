@@ -30,7 +30,7 @@ export function CreateDatabase({ atQuota }: { atQuota: boolean }) {
 				type="button"
 				onClick={() => setOpen(true)}
 				disabled={atQuota}
-				className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 font-medium text-primary-foreground text-sm disabled:cursor-not-allowed disabled:opacity-50"
+				className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 font-medium text-primary-foreground text-sm transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
 				title={atQuota ? "Database limit reached — delete one first" : undefined}
 			>
 				<Plus className="size-4" />
@@ -42,7 +42,7 @@ export function CreateDatabase({ atQuota }: { atQuota: boolean }) {
 	return (
 		<form
 			action={submit}
-			className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-4"
+			className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-5"
 		>
 			<label className="flex flex-col gap-1.5">
 				<span className="text-muted-foreground text-xs">Name</span>
@@ -86,7 +86,7 @@ export function CreateDatabase({ atQuota }: { atQuota: boolean }) {
 			<button
 				type="submit"
 				disabled={pending}
-				className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 font-medium text-primary-foreground text-sm disabled:opacity-60"
+				className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 font-medium text-primary-foreground text-sm disabled:opacity-60"
 			>
 				{pending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
 				{pending ? "Provisioning" : "Create"}
