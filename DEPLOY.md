@@ -41,30 +41,57 @@ node `crafter-vps-1`, instance `inst_8pegf94t2v32` (postgres, shared, active).
 Clerk application **blaze** — `app_3I8oWtsm6d0SQ4xZqmvOtqX27hS`, currently the
 **development** instance. Keys live in Dokploy env and in local `.env.local`.
 
-## Required before this works end to end
+## DNS — done
 
-**DNS records do not exist yet.** `crafter.run` has no wildcard, so nothing under
-`blaze.crafter.run` resolves. Two records are needed, both `A` → `95.111.248.246`:
+Created with the `crafters` CLI against Spaceship DNS, following the `sponsors.crafter.run`
+pattern (CNAME → `vps.crafter.run`, itself an A record to the VPS):
 
-| Record | Why |
-|---|---|
-| `blaze.crafter.run` | The app itself. Until this exists the site is unreachable and Let's Encrypt cannot issue a certificate. |
-| `pg.blaze.crafter.run` | Every Postgres connection string blaze issues points here. Tenants cannot connect without it. |
+```bash
+crafters domain add blaze    --target vps.crafter.run
+crafters domain add pg.blaze --target vps.crafter.run
+```
 
-A wildcard `*.blaze.crafter.run` → `95.111.248.246` covers both and pre-empts the
-per-database hostnames that dedicated engines and SNI routing will need later.
+Note the `--ip` flag shown in the `vps` skill does not exist in `crafters` 0.3.2; use
+`--target` instead.
 
-This is the one blocker that cannot be resolved from code: connection strings are
-permanent, so blaze deliberately will not fall back to handing out `IP:port`.
+Traefik had already cached an ACME failure from before the records existed and was serving
+`TRAEFIK DEFAULT CERT`. Removing and re-adding the domain, then redeploying, triggered a
+fresh request — `blaze.crafter.run` now serves a real Let's Encrypt certificate.
 
-## External ports
+A wildcard `*.blaze.crafter.run` is still worth adding: dedicated engines and per-database
+SNI routing will each need their own hostname.
 
-`blaze-control` is on `5501` and `blaze-pg-1` on `5502`, both publicly reachable. They
-were opened to run migrations and the provisioning smoke test from a laptop.
+## BLOCKER — Postgres has no TLS
 
-`blaze-control` should be closed once CI or an on-VPS migration step exists — it holds
-every tenant's encrypted credentials and has no reason to be on the public internet.
-`blaze-pg-1` stays open only until `pg.blaze.crafter.run` resolves and Traefik fronts it.
+Issued connection strings end in `?sslmode=require`, and the shared instance reports
+`ssl = off`:
+
+```
+sslmode=require  FAIL  The server does not support SSL connections
+```
+
+**No real connection string works until this is fixed.** The fix is not to drop
+`sslmode=require` — that would ship unencrypted database traffic across the public
+internet for a product holding other people's data. Two real options:
+
+1. Terminate TLS at Traefik with a TCP router for `pg.blaze.crafter.run`, reusing the
+   Let's Encrypt certificate Traefik already manages. Also the path to SNI-routed
+   per-database hostnames (PLAN.md Q12, option c).
+2. Configure `ssl = on` inside the Postgres container with a mounted certificate, plus
+   renewal.
+
+(1) is preferred: one certificate, one renewal path, and it is the direction the
+connection-string design already points.
+
+## Ports
+
+| Service | Port | Note |
+|---|---|---|
+| `blaze-pg-1` | **5433** | Public. Not 5432 — Dokploy's own Postgres holds that port. Baked into connection strings; see `lib/engines/types.ts`. |
+| `blaze-control` | 5501 | Public **only** to run migrations from a laptop. |
+
+`blaze-control` should be closed once migrations run on the VPS or in CI. It holds every
+tenant's encrypted credentials and has no reason to be reachable from the internet.
 
 ## Operations
 

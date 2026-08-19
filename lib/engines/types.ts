@@ -48,7 +48,13 @@ export const ENGINE_CONFIG: Record<Engine, EngineConfig> = {
 		label: "PostgreSQL",
 		tenancy: "shared",
 		hostPrefix: "pg",
-		port: 5432,
+		// Not 5432: Dokploy's own Postgres already holds that port on the host, so binding
+		// the shared tenant instance there returns a conflict. This is a property of the
+		// engine, not of one instance — every tenant on `pg.blaze.crafter.run` uses it, and
+		// it is baked into permanent connection strings. Changing it later breaks every
+		// customer, so it moves only behind the SNI proxy (PLAN.md Q12, option c), which
+		// terminates on the standard port and routes by hostname.
+		port: 5433,
 		urlScheme: "postgresql",
 		hasSql: true,
 		image: "postgres:18",
