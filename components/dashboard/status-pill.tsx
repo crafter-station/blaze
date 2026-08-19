@@ -3,16 +3,40 @@ import { cn } from "@/lib/utils";
 type Status = "provisioning" | "active" | "suspended" | "deleting" | "failed";
 
 /**
- * Status colours carry meaning, so they are assigned by what the user can do about it:
- * green needs nothing, amber is recoverable and usually theirs to fix (over quota), red
- * needs us. Provisioning and deleting are transient and read as neutral.
+ * Status colours are assigned by what the user can do about it: green needs nothing,
+ * amber is recoverable and usually theirs to fix (over quota), red needs us. Transient
+ * states are neutral and animate, so "provisioning" reads as in-flight rather than as a
+ * state that has settled.
+ *
+ * In a monochrome palette these badges are close to the only saturated thing on screen,
+ * which is the point — state should be the first thing the eye finds.
  */
-const STYLES: Record<Status, string> = {
-	active: "border-success/30 bg-success/10 text-success",
-	provisioning: "border-border bg-muted text-muted-foreground",
-	deleting: "border-border bg-muted text-muted-foreground",
-	suspended: "border-warning/30 bg-warning/10 text-warning",
-	failed: "border-destructive/30 bg-destructive/10 text-destructive",
+const STYLES: Record<Status, { wrap: string; dot: string; pulse: boolean }> = {
+	active: {
+		wrap: "border-success/25 bg-success/10 text-success",
+		dot: "bg-success",
+		pulse: false,
+	},
+	provisioning: {
+		wrap: "border-border bg-muted text-muted-foreground",
+		dot: "bg-muted-foreground",
+		pulse: true,
+	},
+	deleting: {
+		wrap: "border-border bg-muted text-muted-foreground",
+		dot: "bg-muted-foreground",
+		pulse: true,
+	},
+	suspended: {
+		wrap: "border-warning/25 bg-warning/10 text-warning",
+		dot: "bg-warning",
+		pulse: false,
+	},
+	failed: {
+		wrap: "border-destructive/25 bg-destructive/10 text-destructive",
+		dot: "bg-destructive",
+		pulse: false,
+	},
 };
 
 const LABELS: Record<Status, string> = {
@@ -24,14 +48,27 @@ const LABELS: Record<Status, string> = {
 };
 
 export function StatusPill({ status }: { status: Status }) {
+	const style = STYLES[status];
+
 	return (
 		<span
 			className={cn(
-				"inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px]",
-				STYLES[status],
+				"inline-flex shrink-0 items-center gap-1.5 rounded-full border py-1 pr-2.5 pl-2 font-medium text-[11px] leading-none",
+				style.wrap,
 			)}
 		>
-			<span className="size-1.5 rounded-full bg-current" />
+			{/* Two stacked dots: a soft halo behind a solid core, so the indicator reads at
+			    11px without needing a larger badge. */}
+			<span className="relative flex size-1.5 items-center justify-center">
+				<span
+					className={cn(
+						"absolute inline-flex size-full rounded-full opacity-60",
+						style.dot,
+						style.pulse && "animate-ping",
+					)}
+				/>
+				<span className={cn("relative inline-flex size-full rounded-full", style.dot)} />
+			</span>
 			{LABELS[status]}
 		</span>
 	);

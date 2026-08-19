@@ -1,4 +1,4 @@
-import { CalendarDays, Database, KeyRound, Server, UserRound } from "lucide-react";
+import { ArrowLeft, CalendarDays, Database, KeyRound, Server, UserRound } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ConnectionString } from "@/components/connection-string";
@@ -39,16 +39,17 @@ export default async function DatabaseDetailPage({ params }: { params: Promise<{
 			<div>
 				<Link
 					href="/databases"
-					className="text-muted-foreground text-sm transition-colors hover:text-foreground"
+					className="inline-flex items-center gap-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground"
 				>
-					← Databases
+					<ArrowLeft className="size-3.5" />
+					Databases
 				</Link>
 			</div>
 
 			<div className="flex flex-wrap items-start justify-between gap-4">
 				<div>
 					<div className="flex items-center gap-3">
-						<h1 className="font-semibold text-[42px] leading-tight tracking-tight">
+						<h1 className="font-semibold text-[34px] leading-tight tracking-tight">
 							{record.name}
 						</h1>
 						<StatusPill status={record.status} />
@@ -93,7 +94,7 @@ export default async function DatabaseDetailPage({ params }: { params: Promise<{
 						<h2 className="font-medium">Storage</h2>
 					</div>
 					<div className="px-7 py-6">
-						<p className="font-semibold text-3xl tracking-tight">
+						<p className="font-semibold text-2xl tracking-tight">
 							{formatBytes(record.sizeBytes)}
 							<span className="ml-1.5 font-normal text-base text-muted-foreground">
 								/ {formatBytes(LIMITS.STORAGE_BYTES)}

@@ -26,7 +26,7 @@ export default async function DatabasesPage() {
 		<div className="space-y-8">
 			<div className="flex flex-wrap items-start justify-between gap-4">
 				<div>
-					<h1 className="font-semibold text-[42px] leading-tight tracking-tight">Databases</h1>
+					<h1 className="font-semibold text-[34px] leading-tight tracking-tight">Databases</h1>
 					<p className="mt-2 text-muted-foreground text-sm">
 						{rows.length} of {LIMITS.DATABASES_PER_USER} used
 					</p>

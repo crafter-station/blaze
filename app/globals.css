@@ -114,6 +114,16 @@
 		border-color: var(--border);
 	}
 
+	/*
+	 * Root size drives every rem-based Tailwind step, so one value tightens the whole
+	 * scale at once rather than 60 hand-tuned class changes that drift apart later.
+	 * 15px reads denser without crossing into unreadable — this is a console people stare
+	 * at, not a marketing page.
+	 */
+	html {
+		font-size: 15px;
+	}
+
 	body {
 		background: var(--background);
 		color: var(--foreground);

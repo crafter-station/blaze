@@ -25,7 +25,7 @@ export default async function SettingsPage() {
 	return (
 		<div className="space-y-8">
 			<div>
-				<h1 className="font-semibold text-[42px] leading-tight tracking-tight">Settings</h1>
+				<h1 className="font-semibold text-[34px] leading-tight tracking-tight">Settings</h1>
 				<p className="mt-2 text-muted-foreground text-sm">
 					Account, limits and everything blaze will let you break.
 				</p>

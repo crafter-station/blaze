@@ -29,7 +29,7 @@ export default async function OverviewPage() {
 		<div className="space-y-8">
 			<div className="flex flex-wrap items-start justify-between gap-4">
 				<div>
-					<h1 className="font-semibold text-[42px] leading-tight tracking-tight">Overview</h1>
+					<h1 className="font-semibold text-[34px] leading-tight tracking-tight">Overview</h1>
 					<p className="mt-2 text-muted-foreground text-sm">
 						Free while in alpha — no card, no expiry on the plan.
 					</p>
@@ -137,7 +137,7 @@ function Stat({ label, value, limit }: { label: string; value: string; limit: st
 	return (
 		<div>
 			<p className="text-muted-foreground text-sm">{label}</p>
-			<p className="mt-2 font-semibold text-3xl tracking-tight">
+			<p className="mt-2 font-semibold text-2xl tracking-tight">
 				{value}
 				<span className="ml-1.5 font-normal text-base text-muted-foreground">/ {limit}</span>
 			</p>

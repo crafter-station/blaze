@@ -94,7 +94,7 @@ function IssuedKey({ token, name, onDone }: { token: string; name: string; onDon
 			<div className="w-full max-w-2xl rounded-xl border border-border bg-card p-7">
 				<div className="mb-4 flex items-center gap-3">
 					<TriangleAlert className="size-5 text-warning" />
-					<h2 className="font-medium text-lg">Copy your key now</h2>
+					<h2 className="font-medium text-base">Copy your key now</h2>
 				</div>
 				<p className="mb-5 text-muted-foreground text-sm">
 					<span className="text-foreground">{name}</span> is shown once. blaze stores only a hash,

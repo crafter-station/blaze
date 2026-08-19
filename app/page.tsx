@@ -13,7 +13,7 @@ export default function Home() {
 				<h1 className="font-semibold text-5xl tracking-tight">
 					Any database in <span className="font-mono">200ms</span>.
 				</h1>
-				<p className="max-w-xl text-lg text-muted-foreground">
+				<p className="max-w-xl text-base text-muted-foreground">
 					Free managed databases for agents and the people who build them. Provision from an API, an
 					MCP server, or the dashboard.
 				</p>

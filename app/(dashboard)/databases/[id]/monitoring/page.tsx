@@ -1,4 +1,4 @@
-import { Activity } from "lucide-react";
+import { Activity, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MetricsChart } from "@/components/dashboard/metrics-chart";
@@ -26,16 +26,17 @@ export default async function MonitoringPage({ params }: { params: Promise<{ id:
 			<div>
 				<Link
 					href={`/databases/${id}`}
-					className="text-muted-foreground text-sm transition-colors hover:text-foreground"
+					className="inline-flex items-center gap-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground"
 				>
-					← {record.name}
+					<ArrowLeft className="size-3.5" />
+					{record.name}
 				</Link>
 			</div>
 
 			<div className="flex flex-wrap items-start justify-between gap-4">
 				<div>
 					<div className="flex items-center gap-3">
-						<h1 className="font-semibold text-[42px] leading-tight tracking-tight">Monitoring</h1>
+						<h1 className="font-semibold text-[34px] leading-tight tracking-tight">Monitoring</h1>
 						<StatusPill status={record.status} />
 					</div>
 					<p className="mt-2 text-muted-foreground text-sm">
@@ -115,7 +116,7 @@ function Panel({
 		<section className="rounded-xl border border-border bg-card">
 			<div className="flex flex-wrap items-baseline justify-between gap-3 border-border border-b px-7 py-5">
 				<h2 className="font-medium">{title}</h2>
-				<p className="font-semibold text-2xl tracking-tight">
+				<p className="font-semibold text-xl tracking-tight">
 					{value}
 					<span className="ml-1.5 font-normal text-muted-foreground text-sm">{caption}</span>
 				</p>
