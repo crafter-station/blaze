@@ -24,9 +24,15 @@ const schema = z.object({
 
 	CLERK_SECRET_KEY: z.string().min(1),
 
-	/** Dokploy, used only to provision dedicated containers (redis, libsql). */
+	/**
+	 * Dokploy, used only to provision dedicated containers (redis, libsql).
+	 *
+	 * Optional: the shared engines never touch it, so requiring it would block a deploy on
+	 * a credential the running code has no use for. `lib/dokploy/client.ts` fails loudly if
+	 * something actually tries to call Dokploy without it.
+	 */
 	DOKPLOY_API_URL: z.string().url().default("https://vps.crafter.run/api"),
-	DOKPLOY_API_KEY: z.string().min(1),
+	DOKPLOY_API_KEY: z.string().optional(),
 
 	NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });

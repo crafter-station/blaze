@@ -12,6 +12,13 @@ export class DokployError extends Error {
 }
 
 export async function dokployFetch<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
+	if (!env.DOKPLOY_API_KEY) {
+		throw new DokployError(
+			500,
+			"DOKPLOY_API_KEY is not set. It is only needed to provision dedicated containers (redis, libsql).",
+		);
+	}
+
 	const base = env.DOKPLOY_API_URL.replace(/\/+$/, "");
 	const url = `${base}/${path.replace(/^\/+/, "")}`;
 
