@@ -11,7 +11,7 @@ export default function Home() {
 		<main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-10 px-6">
 			<div className="space-y-4">
 				<h1 className="font-semibold text-5xl tracking-tight">
-					Any database in <span className="text-primary">200ms</span>.
+					Any database in <span className="font-mono">200ms</span>.
 				</h1>
 				<p className="max-w-xl text-lg text-muted-foreground">
 					Free managed databases for agents and the people who build them. Provision from an API, an
@@ -33,13 +33,13 @@ export default function Home() {
 			<div className="flex gap-3">
 				<Link
 					href="/sign-up"
-					className="rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground text-sm"
+					className="rounded-lg bg-primary px-4 py-2.5 font-medium text-primary-foreground text-sm transition-opacity hover:opacity-90"
 				>
 					Get started
 				</Link>
 				<Link
 					href="/sign-in"
-					className="rounded-md border border-border px-4 py-2 font-medium text-sm"
+					className="rounded-lg border border-border px-4 py-2.5 font-medium text-sm transition-colors hover:bg-accent"
 				>
 					Sign in
 				</Link>

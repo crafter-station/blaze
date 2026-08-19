@@ -6,12 +6,17 @@
 /*
  * blaze design tokens.
  *
- * Dark-first developer-tool idiom — the same information architecture as the Neon
- * screenshots in db.crafter.run/designs, with our own identity. The accent is amber
- * rather than Neon's green: it reads off the product name and keeps a visible distance
- * from a product we compete with (PLAN.md Q10, Q17).
+ * Adopted from opensbx.com and uprizing.me, whose values were read straight out of their
+ * compiled stylesheets rather than eyeballed: pure black ground, near-white primary,
+ * translucent white borders, a grayscale chart ramp, Geist, and a 0.425rem radius.
  *
- * Token names follow the shadcn convention so components drop in without remapping.
+ * The system is deliberately monochrome — there is no brand hue. That makes colour itself
+ * meaningful: the only saturated things on screen are status (active, suspended, failed),
+ * so state reads instantly instead of competing with a decorative accent. It also puts
+ * more distance between blaze and Neon than the amber did (PLAN.md Q10).
+ *
+ * Borders are white at 10% opacity rather than a solid grey, so they sit correctly on both
+ * the black ground and the raised #161616 cards without needing two separate values.
  */
 
 @theme inline {
@@ -45,8 +50,9 @@
 	--color-chart-4: var(--chart-4);
 	--color-chart-5: var(--chart-5);
 
-	--font-sans: var(--font-sans);
-	--font-mono: var(--font-mono);
+	--font-sans: var(--font-geist-sans);
+	--font-mono: var(--font-geist-mono);
+	--font-display: var(--font-doto);
 
 	--radius-sm: calc(var(--radius) * 0.6);
 	--radius-md: calc(var(--radius) * 0.8);
@@ -57,46 +63,50 @@
 :root {
 	color-scheme: dark;
 
-	--background: oklch(0.12 0.004 60);
-	--foreground: oklch(0.96 0.003 60);
+	--background: #000000;
+	--foreground: #fafafa;
 
-	--card: oklch(0.16 0.005 60);
-	--card-foreground: oklch(0.96 0.003 60);
-	--popover: oklch(0.16 0.005 60);
-	--popover-foreground: oklch(0.96 0.003 60);
+	--card: #161616;
+	--card-foreground: #fafafa;
+	--popover: #0b0b0b;
+	--popover-foreground: #fafafa;
 
-	/* Amber. The single accent — used for primary actions and active state, nothing else. */
-	--primary: oklch(0.78 0.16 68);
-	--primary-foreground: oklch(0.16 0.02 60);
+	/* Monochrome. Primary actions are near-white on dark, not a brand hue. */
+	--primary: #f8f8f8;
+	--primary-foreground: #1b1b1b;
 
-	--secondary: oklch(0.21 0.005 60);
-	--secondary-foreground: oklch(0.92 0.003 60);
-	--muted: oklch(0.19 0.005 60);
-	--muted-foreground: oklch(0.62 0.008 60);
-	--accent: oklch(0.22 0.008 60);
-	--accent-foreground: oklch(0.92 0.003 60);
+	--secondary: #262626;
+	--secondary-foreground: #fafafa;
+	--muted: #262626;
+	--muted-foreground: #a1a1a1;
+	--accent: #262626;
+	--accent-foreground: #fafafa;
 
-	--destructive: oklch(0.64 0.2 25);
-	--success: oklch(0.72 0.16 150);
-	--warning: oklch(0.8 0.15 85);
+	/*
+	 * The only saturated colours in the system, reserved for state. Tuned to the same
+	 * softness as the reference destructive so they read as information, not alarm.
+	 */
+	--destructive: #ff6568;
+	--success: #5ed3a3;
+	--warning: #f0b866;
 
-	--border: oklch(0.26 0.006 60);
-	--input: oklch(0.26 0.006 60);
-	--ring: oklch(0.78 0.16 68);
+	--border: #ffffff1a;
+	--input: #ffffff26;
+	--ring: #a1a1a1;
 
-	--sidebar: oklch(0.14 0.004 60);
-	--sidebar-foreground: oklch(0.88 0.003 60);
-	--sidebar-accent: oklch(0.21 0.006 60);
-	--sidebar-border: oklch(0.24 0.006 60);
+	--sidebar: #000000;
+	--sidebar-foreground: #fafafa;
+	--sidebar-accent: #262626;
+	--sidebar-border: #ffffff1a;
 
-	/* Charts: amber leads, then hues far enough apart to stay distinct at 1px. */
-	--chart-1: oklch(0.78 0.16 68);
-	--chart-2: oklch(0.7 0.13 220);
-	--chart-3: oklch(0.72 0.16 150);
-	--chart-4: oklch(0.68 0.17 330);
-	--chart-5: oklch(0.75 0.12 190);
+	/* Grayscale ramp — series are told apart by order and label, not hue. */
+	--chart-1: #d4d4d4;
+	--chart-2: #a1a1a1;
+	--chart-3: #737373;
+	--chart-4: #525252;
+	--chart-5: #404040;
 
-	--radius: 0.5rem;
+	--radius: 0.425rem;
 }
 
 @layer base {
@@ -107,16 +117,16 @@
 	body {
 		background: var(--background);
 		color: var(--foreground);
-		font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+		font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 		-webkit-font-smoothing: antialiased;
 	}
 
-	/* Connection strings, ids and metrics are all monospace — they get read character
-	   by character, and tabular figures stop numbers jittering as they update. */
+	/* Connection strings, ids and metrics get read character by character, and tabular
+	   figures stop numbers jittering as they update. */
 	code,
 	pre,
 	kbd {
-		font-family: var(--font-mono), ui-monospace, monospace;
+		font-family: var(--font-geist-mono), ui-monospace, monospace;
 		font-variant-numeric: tabular-nums;
 	}
 }

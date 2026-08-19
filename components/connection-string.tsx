@@ -41,7 +41,7 @@ export function ConnectionString({ value, masked }: { value: string; masked: str
 						onClick={copy}
 						className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-muted-foreground text-sm transition-colors hover:bg-accent hover:text-foreground"
 					>
-						{copied ? <Check className="size-4 text-primary" /> : <Copy className="size-4" />}
+						{copied ? <Check className="size-4 text-success" /> : <Copy className="size-4" />}
 						{copied ? "Copied" : "Copy"}
 					</button>
 				</div>

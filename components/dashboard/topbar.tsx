@@ -23,7 +23,7 @@ export function TopBar({
 			<div className="flex h-16 items-center gap-4 px-6">
 				<Link
 					href="/projects"
-					className="flex size-10 items-center justify-center rounded-lg bg-primary font-semibold text-lg text-primary-foreground"
+					className="flex size-10 items-center justify-center rounded-lg bg-primary font-display font-bold text-primary-foreground text-xl"
 					aria-label="blaze"
 				>
 					b
