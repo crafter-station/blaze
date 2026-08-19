@@ -196,6 +196,30 @@ export async function resumePostgresDatabase(
 	}
 }
 
+/**
+ * Rotate a tenant's password.
+ *
+ * Existing sessions survive — Postgres authenticates at connect time, so anything already
+ * connected keeps working until it reconnects. That is the right behaviour for a rotation
+ * a user asked for, and the wrong one for a leak; revoking a compromised credential means
+ * rotating *and* terminating, which is what `suspendPostgresDatabase` does.
+ */
+export async function resetPostgresPassword(
+	adminUrl: string,
+	roleName: string,
+	password: string,
+): Promise<void> {
+	const admin = new Client({ connectionString: adminUrl });
+	await admin.connect();
+	try {
+		await admin.query(
+			`ALTER ROLE ${quoteIdent("role", roleName)} WITH PASSWORD ${quoteLiteral(password)}`,
+		);
+	} finally {
+		await admin.end();
+	}
+}
+
 /** Size and activity for one tenant. Feeds both the quota check and the charts. */
 export async function readPostgresStats(
 	adminUrl: string,

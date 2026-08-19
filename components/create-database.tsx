@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2, Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { createDatabaseAction, deleteDatabaseAction } from "@/app/actions";
@@ -102,15 +103,29 @@ export function CreateDatabase({ atQuota }: { atQuota: boolean }) {
 	);
 }
 
-export function DeleteDatabase({ id, name }: { id: string; name: string }) {
+export function DeleteDatabase({
+	id,
+	name,
+	redirectTo,
+}: {
+	id: string;
+	name: string;
+	/** Where to go after deleting. The detail page must leave — its record is gone. */
+	redirectTo?: string;
+}) {
 	const [pending, start] = useTransition();
 	const [confirming, setConfirming] = useState(false);
+	const router = useRouter();
 
 	function remove() {
 		start(async () => {
 			const result = await deleteDatabaseAction(id);
-			if (result.ok) toast.success(`Deleted ${name}`);
-			else toast.error(result.error ?? "Failed to delete");
+			if (result.ok) {
+				toast.success(`Deleted ${name}`);
+				if (redirectTo) router.push(redirectTo);
+			} else {
+				toast.error(result.error ?? "Failed to delete");
+			}
 			setConfirming(false);
 		});
 	}

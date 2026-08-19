@@ -8,7 +8,11 @@ import { ENGINE_CONFIG, type Engine } from "@/lib/engines/types";
 import { newId, physicalName, slugify } from "@/lib/id";
 import { LIMITS, TTL } from "@/lib/limits";
 import { bumpDatabaseCount, selectInstance } from "./placement";
-import { deprovisionPostgresDatabase, provisionPostgresDatabase } from "./postgres";
+import {
+	deprovisionPostgresDatabase,
+	provisionPostgresDatabase,
+	resetPostgresPassword,
+} from "./postgres";
 
 export class QuotaExceededError extends Error {
 	constructor(message: string) {
@@ -151,14 +155,8 @@ export async function createDatabase(
  * at nothing while the data stayed on disk.
  */
 export async function destroyDatabase(user: User, databaseId: string): Promise<void> {
-	const record = await db.query.databases.findFirst({
-		where: and(eq(databases.id, databaseId), isNull(databases.deletedAt)),
-		with: { instance: true },
-	});
-
-	if (!record || record.ownerUserId !== user.id) {
-		throw new Error("Database not found");
-	}
+	const record = await getOwnedDatabase(user.id, databaseId);
+	if (!record) throw new Error("Database not found");
 
 	const adminUrl = adminConnectionString(
 		record.engine,
@@ -184,6 +182,59 @@ export async function destroyDatabase(user: User, databaseId: string): Promise<v
 		targetType: "database",
 		targetId: databaseId,
 		metadata: { engine: record.engine },
+	});
+}
+
+/**
+ * Look up one database the caller owns, with the instance needed to reach it.
+ *
+ * Ownership is checked here rather than in the page or action, so a missing check in a new
+ * call site cannot become an access-control hole. Not-found and not-yours are deliberately
+ * the same error: telling a stranger that an id exists but is not theirs is a small
+ * enumeration leak.
+ */
+export async function getOwnedDatabase(userId: string, databaseId: string) {
+	const record = await db.query.databases.findFirst({
+		where: and(eq(databases.id, databaseId), isNull(databases.deletedAt)),
+		with: { instance: true, project: true },
+	});
+	if (!record || record.ownerUserId !== userId) return null;
+	return record;
+}
+
+/** Issue a new password for a database's role and return the fresh connection string. */
+export async function resetDatabasePassword(user: User, databaseId: string): Promise<string> {
+	const record = await getOwnedDatabase(user.id, databaseId);
+	if (!record) throw new Error("Database not found");
+
+	const adminUrl = adminConnectionString(
+		record.engine,
+		record.instance.internalHost,
+		record.instance.port,
+		record.instance.adminUser,
+		record.instance.adminPasswordEnc,
+	);
+
+	const password = generatePassword();
+	await resetPostgresPassword(adminUrl, record.roleName, password);
+
+	const passwordEnc = encryptSecret(password);
+	await db.update(databases).set({ passwordEnc }).where(eq(databases.id, databaseId));
+
+	await db.insert(auditLog).values({
+		id: newId("db"),
+		actorUserId: user.id,
+		action: "database.reset_password",
+		targetType: "database",
+		targetId: databaseId,
+	});
+
+	return buildConnectionString({
+		engine: record.engine,
+		slug: record.slug,
+		dbName: record.dbName,
+		roleName: record.roleName,
+		passwordEnc,
 	});
 }
 

@@ -7,25 +7,11 @@ import { buildConnectionString } from "@/lib/connection";
 import { db } from "@/lib/control/db";
 import { databases } from "@/lib/control/schema";
 import { ENGINE_CONFIG } from "@/lib/engines/types";
+import { formatBytes, formatExpiry } from "@/lib/format";
 import { LIMITS } from "@/lib/limits";
 
 export const metadata = { title: "Overview" };
 export const dynamic = "force-dynamic";
-
-function formatBytes(bytes: number): string {
-	if (bytes < 1024) return `${bytes} B`;
-	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-	if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
-	return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
-}
-
-function formatExpiry(expiresAt: Date | null): string | null {
-	if (!expiresAt) return null;
-	const ms = expiresAt.getTime() - Date.now();
-	if (ms <= 0) return "expired";
-	const hours = Math.round(ms / 3_600_000);
-	return hours < 48 ? `expires in ${hours}h` : `expires in ${Math.round(hours / 24)}d`;
-}
 
 export default async function OverviewPage() {
 	const user = await requireUser();

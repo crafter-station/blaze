@@ -40,7 +40,7 @@ interface NavItem {
 
 const WORKSPACE: NavItem[] = [
 	{ href: "/projects", label: "Overview", icon: LayoutGrid },
-	{ href: "/databases", label: "Databases", icon: Database, soon: true },
+	{ href: "/databases", label: "Databases", icon: Database },
 	{ href: "/api-keys", label: "API keys", icon: KeyRound, soon: true },
 	{ href: "/settings", label: "Settings", icon: Settings, soon: true },
 ];
@@ -136,7 +136,9 @@ function Item({
 	pathname: string;
 	collapsed: boolean;
 }) {
-	const active = pathname === item.href;
+	// Prefix match, not equality: a detail page like /databases/db_x7f2 is still "in"
+	// Databases, and a sidebar that goes blank when you drill in loses your place.
+	const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
 	const Icon = item.icon;
 
 	// Unbuilt destinations render as disabled rather than being hidden: the shape of the

@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { type Engine, isEngine } from "@/lib/engines/types";
-import { createDatabase, destroyDatabase, QuotaExceededError } from "@/lib/provision";
+import {
+	createDatabase,
+	destroyDatabase,
+	QuotaExceededError,
+	resetDatabasePassword,
+} from "@/lib/provision";
 
 export interface ActionResult {
 	ok: boolean;
@@ -29,6 +34,7 @@ export async function createDatabaseAction(formData: FormData): Promise<ActionRe
 			createdVia: "dashboard",
 		});
 		revalidatePath("/projects");
+		revalidatePath("/databases");
 		return { ok: true, tookMs: created.tookMs };
 	} catch (error) {
 		// Quota is a normal outcome, not a fault — it deserves its own message rather than
@@ -43,8 +49,30 @@ export async function deleteDatabaseAction(databaseId: string): Promise<ActionRe
 	try {
 		await destroyDatabase(user, databaseId);
 		revalidatePath("/projects");
+		revalidatePath("/databases");
 		return { ok: true };
 	} catch (error) {
 		return { ok: false, error: error instanceof Error ? error.message : "Failed to delete" };
+	}
+}
+
+/**
+ * Rotate a database's password.
+ *
+ * The new connection string comes back in the result rather than only being written to the
+ * database, so the UI can show it immediately — the moment right after a rotation is
+ * exactly when someone needs to paste it somewhere.
+ */
+export async function resetPasswordAction(
+	databaseId: string,
+): Promise<ActionResult & { connectionString?: string }> {
+	const user = await requireUser();
+	try {
+		const connectionString = await resetDatabasePassword(user, databaseId);
+		revalidatePath("/databases");
+		revalidatePath(`/databases/${databaseId}`);
+		return { ok: true, connectionString };
+	} catch (error) {
+		return { ok: false, error: error instanceof Error ? error.message : "Failed to reset" };
 	}
 }
