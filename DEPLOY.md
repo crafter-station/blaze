@@ -104,6 +104,38 @@ a real certificate.
 blaze's own admin connections use `sslmode=no-verify`: the certificate is one blaze
 generated on that instance, so there is no chain to validate, but the hop is encrypted.
 
+
+## MongoDB — implemented, not offered
+
+`blaze-mongo-1` (mongo:8) runs on `mongo.blaze.crafter.run:27017`, and
+`lib/provision/mongo.ts` is complete and verified against it: tenants own their database,
+cannot touch another tenant's or `admin`, stats report, and suspend/resume work.
+
+**It is deliberately absent from `PROVISIONABLE`, so nobody can create one yet**, because
+the instance cannot be made to require TLS:
+
+- Dokploy stores a `command` for Mongo services but never passes it to the container.
+  Setting `mongod --tlsMode requireTLS ...` and redeploying leaves the running argv as
+  `["mongod","--auth","--bind_ip_all"]` — verified with `getCmdLineOpts`.
+- The certificate itself is not the problem; a file mount at `/etc/mongo-tls/mongo.pem`
+  was created successfully. mongod simply never receives the flag telling it to use it.
+
+Postgres and MySQL both refuse unencrypted connections, and the landing page says
+"Connections require TLS". Offering a plaintext engine would make that false.
+
+Two ways to unblock it, both needing access beyond the Dokploy database abstraction:
+
+1. Run Mongo as a **compose stack** instead of a Dokploy `mongo` service, where the
+   service definition — command, config file, certificate — is ours to write.
+2. Terminate TLS at Traefik with a TCP router, the same path that would give Postgres a
+   publicly trusted certificate.
+
+**Do not call `mongo.rebuild` or `mongo.reload`.** Rebuild attempts
+`docker volume rm <service>-data --force`, and reload scales the service; together they
+took the instance down. It was recovered with `mongo.update` (clearing the command) plus
+`mongo.deploy`, and no tenant data existed at the time — but on a populated instance
+rebuild is a data-loss operation.
+
 ## Ports
 
 | Service | Port | Note |

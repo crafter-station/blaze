@@ -1,6 +1,15 @@
 import { PROVISIONABLE } from "@/lib/engines/available";
 import type { Engine } from "@/lib/engines/types";
 import {
+	deprovisionMongoDatabase,
+	hardenMongoInstance,
+	provisionMongoDatabase,
+	readMongoStats,
+	resetMongoPassword,
+	resumeMongoDatabase,
+	suspendMongoDatabase,
+} from "./mongo";
+import {
 	deprovisionMysqlDatabase,
 	hardenMysqlInstance,
 	provisionMysqlDatabase,
@@ -79,11 +88,22 @@ const MYSQL: EngineOps = {
 	harden: hardenMysqlInstance,
 };
 
-/** Engines blaze can actually provision today. Absent here means "not yet". */
+const MONGO: EngineOps = {
+	provision: provisionMongoDatabase,
+	deprovision: deprovisionMongoDatabase,
+	suspend: suspendMongoDatabase,
+	resume: resumeMongoDatabase,
+	resetPassword: resetMongoPassword,
+	readStats: readMongoStats,
+	harden: hardenMongoInstance,
+};
+
+/** Engines with a working implementation. Not the same as engines we offer — see below. */
 export const ENGINE_OPS: Partial<Record<Engine, EngineOps>> = {
 	postgres: POSTGRES,
 	mysql: MYSQL,
 	mariadb: MYSQL,
+	mongo: MONGO,
 };
 
 export function isSupported(engine: Engine): boolean {
@@ -91,18 +111,19 @@ export function isSupported(engine: Engine): boolean {
 }
 
 /*
- * `lib/engines/available.ts` carries the same list for the browser, which cannot import
- * this module (it pulls in database drivers). This asserts at module load that the two
- * agree, so a mismatch surfaces on boot rather than as a create dialog offering an engine
- * the provisioner will reject.
+ * `lib/engines/available.ts` carries the offered list for the browser, which cannot import
+ * this module (it pulls in database drivers).
+ *
+ * The invariant is a subset, not equality: everything advertised must be implemented, but
+ * implemented-and-not-yet-offered is a legitimate state. MongoDB is exactly that — the
+ * provisioner works, but the instance cannot be made to require TLS through Dokploy, and
+ * offering a plaintext engine would contradict what the rest of the product promises.
  */
 {
-	const implemented = Object.keys(ENGINE_OPS).sort().join(",");
-	const advertised = [...PROVISIONABLE].sort().join(",");
-	if (implemented !== advertised) {
-		throw new Error(
-			`Engine lists disagree: provisioner has [${implemented}], UI advertises [${advertised}]`,
-		);
+	const implemented = new Set(Object.keys(ENGINE_OPS));
+	const missing = PROVISIONABLE.filter((engine) => !implemented.has(engine));
+	if (missing.length > 0) {
+		throw new Error(`UI advertises engines with no provisioner: ${missing.join(", ")}`);
 	}
 }
 
