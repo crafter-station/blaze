@@ -93,6 +93,26 @@ connection-string design already points.
 `blaze-control` should be closed once migrations run on the VPS or in CI. It holds every
 tenant's encrypted credentials and has no reason to be reachable from the internet.
 
+
+## Metrics cron — needs scheduling
+
+`POST /api/cron/metrics` samples every database, writes a point to `database_metrics`,
+and enforces the storage quota by suspending anything over the limit (and reinstating
+anything back under it). **Nothing schedules it yet** — it has to be called every 5
+minutes or quotas go unenforced and charts stay empty.
+
+```bash
+curl -X POST https://blaze.crafter.run/api/cron/metrics   -H "Authorization: Bearer $CRON_SECRET"
+# {"sampled":1,"suspended":0,"errors":0,"tookMs":231}
+```
+
+Add it as a Dokploy schedule (or a host crontab entry) at `*/5 * * * *`. The secret lives
+in the app's environment as `CRON_SECRET`; with it unset the endpoint refuses everything,
+because it can suspend databases and reach every instance.
+
+Verified in production: 401 with no header, 401 with a wrong secret, 200 with the right
+one, and a sweep of one database in 231ms.
+
 ## Operations
 
 ```bash
