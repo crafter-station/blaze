@@ -61,27 +61,48 @@ fresh request — `blaze.crafter.run` now serves a real Let's Encrypt certificat
 A wildcard `*.blaze.crafter.run` is still worth adding: dedicated engines and per-database
 SNI routing will each need their own hostname.
 
-## BLOCKER — Postgres has no TLS
+## TLS — enabled and enforced
 
-Issued connection strings end in `?sslmode=require`, and the shared instance reports
-`ssl = off`:
+`blaze-pg-1` serves **TLSv1.3**, and unencrypted connections are **refused**:
 
 ```
-sslmode=require  FAIL  The server does not support SSL connections
+plaintext: no pg_hba.conf entry for host "...", user "blazeadmin", ... no encryption
 ```
 
-**No real connection string works until this is fixed.** The fix is not to drop
-`sslmode=require` — that would ship unencrypted database traffic across the public
-internet for a product holding other people's data. Two real options:
+How it was done, with no shell access to the VPS:
 
-1. Terminate TLS at Traefik with a TCP router for `pg.blaze.crafter.run`, reusing the
-   Let's Encrypt certificate Traefik already manages. Also the path to SNI-routed
-   per-database hostnames (PLAN.md Q12, option c).
-2. Configure `ssl = on` inside the Postgres container with a mounted certificate, plus
-   renewal.
+- The certificate was generated **inside the container** via `COPY ... TO PROGRAM` as
+  superuser, so the private key never crossed the network. It lives in the data directory,
+  which is a persistent volume, so it survives redeploys.
+- `ssl` is SIGHUP-reloadable, so enabling it needed no restart. A bad certificate would
+  have failed the reload and left the server running with `ssl = off` rather than taking
+  the instance down.
+- `pg_hba.conf` was switched from `host` to `hostssl` for external connections. That edit
+  is unrecoverable if it locks everyone out, so it was applied through a **held-open
+  session** — a reload does not affect established connections, so that session could
+  still restore the backup at `pg_hba.conf.blaze-backup`. Loopback and unix-socket rules
+  were left as `trust` so the container's own health check keeps working.
 
-(1) is preferred: one certificate, one renewal path, and it is the direction the
-connection-string design already points.
+### Residual gap: the certificate is self-signed
+
+Encryption in transit is real; **server authentication is not**. An active
+man-in-the-middle is not defeated by a certificate the client cannot validate.
+
+Practical effect on clients using `?sslmode=require`:
+
+| Client | Result |
+|---|---|
+| libpq, `psql`, psycopg, pgx, Prisma, postgres.js | works — `require` means encrypt, do not verify |
+| node-postgres 8.23+ | **fails** — it currently aliases `require` to `verify-full`; use `sslmode=no-verify` |
+
+Getting a publicly trusted certificate needs ACME validation for `pg.blaze.crafter.run`,
+which needs either port 80/443 (Traefik holds both) or DNS-01 (the `crafters` CLI only
+writes CNAMEs). Both need VPS file access or a new ACME path, so it is a separate piece
+of work — the direction remains PLAN.md Q12 option (c): terminate TLS at a proxy holding
+a real certificate.
+
+blaze's own admin connections use `sslmode=no-verify`: the certificate is one blaze
+generated on that instance, so there is no chain to validate, but the hop is encrypted.
 
 ## Ports
 
@@ -125,8 +146,9 @@ INSTANCE_ENGINE=postgres INSTANCE_HOST=blaze-pg-1-yu7lyz INSTANCE_PORT=5432 \
 INSTANCE_ADMIN_USER=blazeadmin INSTANCE_ADMIN_PASSWORD=... INSTANCE_VERSION=18.6 \
 HARDEN_URL=... bun run scripts/bootstrap-instance.ts
 
-# Verify provisioning and cross-tenant isolation against a real instance
-ENCRYPTION_KEY=... ADMIN_URL=... bun run scripts/smoke-provision.ts
+# Verify provisioning and cross-tenant isolation against a real instance.
+# ADMIN_URL must carry ?sslmode=no-verify — the instance refuses plaintext.
+ENCRYPTION_KEY=... ADMIN_URL=...?sslmode=no-verify bun run scripts/smoke-provision.ts
 ```
 
 `ENCRYPTION_KEY` must match the value in the app's environment. Change it and every
