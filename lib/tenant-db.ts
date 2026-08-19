@@ -100,17 +100,36 @@ async function connectMysql(record: Record_, timeoutMs: number): Promise<TenantC
 				),
 			])) as [unknown, mysql.FieldPacket[] | undefined];
 
-			// A batch yields an array of results; take the last, as Postgres does.
-			const isBatch = Array.isArray(rows) && Array.isArray(fields) && Array.isArray(fields[0]);
-			const finalRows = (isBatch ? (rows as unknown[])[(rows as unknown[]).length - 1] : rows) as
-				| unknown[][]
-				| { affectedRows?: number };
-			const finalFields = (
-				isBatch ? (fields as unknown as mysql.FieldPacket[][])[fields.length - 1] : fields
-			) as mysql.FieldPacket[] | undefined;
+			/*
+			 * mysql2's result shape depends on the statement, and getting this wrong is silent:
+			 *
+			 *   single write   rows = OkPacket,          fields = undefined
+			 *   single select  rows = [[...]],           fields = [FieldPacket, ...]
+			 *   batch          rows = [Ok, Ok, [[...]]], fields = [undefined, undefined, [FieldPacket]]
+			 *
+			 * The batch case is the trap: `fields[0]` is `undefined` for a leading non-SELECT,
+			 * so testing `Array.isArray(fields[0])` classifies a batch as a single select and
+			 * then maps over undefined entries. Detect on the *rows* side instead, where every
+			 * batch element is either an array or an OkPacket.
+			 */
+			const isBatch =
+				Array.isArray(rows) &&
+				rows.length > 0 &&
+				rows.every(
+					(entry) =>
+						Array.isArray(entry) ||
+						(entry !== null && typeof entry === "object" && "affectedRows" in (entry as object)),
+				);
 
-			// A write returns an OkPacket rather than rows, which is how MySQL reports "no
-			// result set" — surfaced as an empty result rather than as a shape error.
+			const finalRows = isBatch ? (rows as unknown[])[(rows as unknown[]).length - 1] : rows;
+			const finalFields = isBatch
+				? (fields as unknown as (mysql.FieldPacket[] | undefined)[])?.[
+						(fields as unknown[]).length - 1
+					]
+				: fields;
+
+			// A write returns an OkPacket rather than rows — MySQL's way of saying "no result
+			// set" — surfaced as an empty result rather than as a shape error.
 			if (!Array.isArray(finalRows)) {
 				return {
 					columns: [],
@@ -121,9 +140,10 @@ async function connectMysql(record: Record_, timeoutMs: number): Promise<TenantC
 			}
 
 			return {
-				columns: finalFields?.map((f) => f.name) ?? [],
+				// Filter before mapping: a batch's field array can still carry undefined slots.
+				columns: (finalFields ?? []).filter(Boolean).map((f) => f.name),
 				rows: finalRows as unknown[][],
-				rowCount: finalRows.length,
+				rowCount: (finalRows as unknown[][]).length,
 				command: "SELECT",
 			};
 		},
