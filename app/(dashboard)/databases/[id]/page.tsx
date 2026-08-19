@@ -82,8 +82,12 @@ export default async function DatabaseDetailPage({ params }: { params: Promise<{
 					<Field label="Role" value={record.roleName} mono />
 				</dl>
 				<p className="mt-6 border-border border-t pt-5 text-muted-foreground text-xs">
-					TLS is required. The password is stored encrypted and can be rotated at any time —
-					existing sessions keep working until they reconnect.
+					TLS is required — the server refuses unencrypted connections. The certificate is currently
+					self-signed, so clients that verify the chain need{" "}
+					<span className="font-mono">sslmode=no-verify</span> rather than{" "}
+					<span className="font-mono">require</span> (node-postgres is the common case). Passwords
+					are stored encrypted and can be rotated at any time; existing sessions keep working until
+					they reconnect.
 				</p>
 			</section>
 

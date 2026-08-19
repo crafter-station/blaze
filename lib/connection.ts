@@ -97,5 +97,11 @@ export function adminConnectionString(
 	if (engine === "redis") return `redis://:${password}@${internalHost}:${port}`;
 	if (engine === "libsql") return `http://${internalHost}:${port}`;
 
-	return `${urlScheme}://${user}:${password}@${internalHost}:${port}/${database ?? "postgres"}`;
+	// `no-verify` rather than `require`: the instance presents a self-signed certificate
+	// that blaze generated on the instance itself, so there is no chain to validate against
+	// — but the connection is still encrypted. Once a publicly trusted certificate is in
+	// place this becomes `verify-full`. Plain `require` is avoided deliberately: node-postgres
+	// currently treats it as `verify-full`, which would fail against our own certificate.
+	const db = database ?? "postgres";
+	return `${urlScheme}://${user}:${password}@${internalHost}:${port}/${db}?sslmode=no-verify`;
 }
