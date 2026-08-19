@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { ApiKeyLimitError, createApiKey, revokeApiKey } from "@/lib/api-keys";
 import { requireUser } from "@/lib/auth";
 import { type Engine, isEngine } from "@/lib/engines/types";
 import {
@@ -74,5 +75,38 @@ export async function resetPasswordAction(
 		return { ok: true, connectionString };
 	} catch (error) {
 		return { ok: false, error: error instanceof Error ? error.message : "Failed to reset" };
+	}
+}
+
+/**
+ * Create an API key.
+ *
+ * The token is returned here and nowhere else — it is never persisted in a readable form,
+ * so if the caller does not capture it now it is gone for good.
+ */
+export async function createApiKeyAction(
+	formData: FormData,
+): Promise<ActionResult & { token?: string; name?: string }> {
+	const user = await requireUser();
+	const name = String(formData.get("name") ?? "").trim();
+
+	try {
+		const created = await createApiKey(user, name);
+		revalidatePath("/api-keys");
+		return { ok: true, token: created.token, name: created.name };
+	} catch (error) {
+		if (error instanceof ApiKeyLimitError) return { ok: false, error: error.message };
+		return { ok: false, error: error instanceof Error ? error.message : "Failed to create key" };
+	}
+}
+
+export async function revokeApiKeyAction(keyId: string): Promise<ActionResult> {
+	const user = await requireUser();
+	try {
+		await revokeApiKey(user, keyId);
+		revalidatePath("/api-keys");
+		return { ok: true };
+	} catch (error) {
+		return { ok: false, error: error instanceof Error ? error.message : "Failed to revoke" };
 	}
 }
