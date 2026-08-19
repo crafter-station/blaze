@@ -101,13 +101,16 @@ export default function DocsPage() {
 
 					<Section id="mcp" title="MCP server">
 						<p>
-							The fastest way in. Paste this into Claude Code and it will configure blaze, verify
-							the connection, and leave you with a working database.
+							The fastest way in, and it needs no API key at all. blaze advertises OAuth, so Claude
+							Code discovers the authorization server, registers itself, and opens a browser for you
+							to approve once. Paste this and it will configure blaze, verify the connection, and
+							leave you with a working database.
 						</p>
 						<PromptBlock />
 						<p className="text-muted-foreground text-sm">
-							Endpoint <Mono>{MCP_URL}</Mono>, Streamable HTTP transport, authenticated with the
-							same bearer key as the REST API. Six tools:
+							Endpoint <Mono>{MCP_URL}</Mono>, Streamable HTTP transport. Authenticate with OAuth,
+							or with the same bearer key as the REST API where no browser is available. Seven
+							tools:
 						</p>
 						<Table
 							head={["Tool", "What it does"]}
@@ -117,6 +120,7 @@ export default function DocsPage() {
 								["get_connection_string", "Credentials for one database"],
 								["run_query", "Execute SQL and get rows back — no driver needed"],
 								["set_ttl", "Change or clear auto-delete"],
+								["create_api_key", "Mint a key for your own app or CI"],
 								["delete_database", "Permanent, no undo"],
 							]}
 						/>

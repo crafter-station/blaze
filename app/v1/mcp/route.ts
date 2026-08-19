@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { authenticate, isResponse } from "@/lib/api/http";
+import { resolveMcpCaller } from "@/lib/mcp/auth";
 import { callTool, TOOLS } from "@/lib/mcp/tools";
+import { publicUrl } from "@/lib/public-url";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -13,8 +14,13 @@ export const maxDuration = 60;
  * directly rather than pulling in an SDK built around stdio servers and long-lived
  * sessions. A Next route handler is neither.
  *
- * Auth is the same bearer API key as the rest of `/v1`, so a key works identically from
- * curl and from an agent, and revoking it cuts off both.
+ * Two auth paths, both landing on the same user: a Clerk OAuth token (agents authorize
+ * once in a browser, nobody copies a secret) or a blaze API key (curl, CI, anything with
+ * no browser to redirect to).
+ *
+ * An unauthenticated call answers 401 with a `WWW-Authenticate` header pointing at the
+ * protected-resource document. That header is what makes the OAuth flow start at all —
+ * without it a client sees a bare 401 and has nowhere to go.
  */
 
 const PROTOCOL_VERSION = "2025-06-18";
@@ -32,6 +38,31 @@ function result(id: RpcRequest["id"], value: unknown) {
 
 function rpcError(id: RpcRequest["id"], code: number, message: string) {
 	return NextResponse.json({ jsonrpc: "2.0", id, error: { code, message } });
+}
+
+/**
+ * 401 with an RFC 9728 challenge. The `resource_metadata` pointer is the whole mechanism:
+ * an MCP client reads it, discovers Clerk as the authorization server, registers itself,
+ * and opens a browser for consent. A JSON-RPC error body alone would leave the client
+ * with nothing to act on, so both are sent.
+ */
+function unauthorized(id: RpcRequest["id"]) {
+	return NextResponse.json(
+		{
+			jsonrpc: "2.0",
+			id,
+			error: {
+				code: -32001,
+				message: "Unauthorized. Authorize via OAuth, or send Authorization: Bearer blz_live_...",
+			},
+		},
+		{
+			status: 401,
+			headers: {
+				"WWW-Authenticate": `Bearer resource_metadata="${publicUrl()}/.well-known/oauth-protected-resource"`,
+			},
+		},
+	);
 }
 
 export async function POST(request: Request) {
@@ -66,12 +97,9 @@ export async function POST(request: Request) {
 
 	if (method === "ping") return result(id, {});
 
-	const user = await authenticate(request);
-	if (isResponse(user)) {
-		// Translate the HTTP-shaped auth failure into JSON-RPC, so MCP clients surface a
-		// real message instead of a transport error.
-		return rpcError(id, -32001, "Unauthorized. Set an Authorization: Bearer blz_live_... header.");
-	}
+	const caller = await resolveMcpCaller(request);
+	if (!caller) return unauthorized(id);
+	const user = caller.user;
 
 	if (method === "tools/list") {
 		return result(id, {
@@ -118,7 +146,10 @@ export async function GET() {
 		name: "blaze",
 		protocolVersion: PROTOCOL_VERSION,
 		transport: "streamable-http",
-		authentication: "Authorization: Bearer blz_live_...",
+		authentication: {
+			oauth: `${publicUrl()}/.well-known/oauth-protected-resource`,
+			api_key: "Authorization: Bearer blz_live_...",
+		},
 		tools: TOOLS.map((tool) => tool.name),
 	});
 }

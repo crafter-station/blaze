@@ -1,6 +1,7 @@
 import "server-only";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { serializeDatabase } from "@/lib/api/serialize";
+import { ApiKeyLimitError, createApiKey } from "@/lib/api-keys";
 import { db } from "@/lib/control/db";
 import { databases, type User } from "@/lib/control/schema";
 import { ENGINES } from "@/lib/engines/types";
@@ -101,6 +102,22 @@ export const TOOLS: ToolDefinition[] = [
 		},
 	},
 	{
+		name: "create_api_key",
+		description:
+			"Mint a blaze API key for the user's own application, CI, or scripts. Use this when " +
+			"they need blaze credentials somewhere that cannot do an OAuth browser flow. The key " +
+			"is returned once and cannot be retrieved again, so surface it to the user " +
+			"immediately and tell them to store it. You do not need a key yourself — you are " +
+			"already authenticated.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				name: { type: "string", description: "What it is for, e.g. 'production app'." },
+			},
+			required: ["name"],
+		},
+	},
+	{
 		name: "delete_database",
 		description:
 			"Permanently delete a database and all its data. There is no backup and no undo. " +
@@ -195,6 +212,23 @@ export async function callTool(user: User, name: string, args: Args): Promise<To
 			const expiresAt = typeof seconds === "number" ? new Date(Date.now() + seconds * 1000) : null;
 			await db.update(databases).set({ expiresAt }).where(eq(databases.id, record.id));
 			return { text: json({ id: record.id, expires_at: expiresAt?.toISOString() ?? null }) };
+		}
+
+		case "create_api_key": {
+			try {
+				const key = await createApiKey(user, String(args.name ?? "agent-created"));
+				return {
+					text: json({
+						id: key.id,
+						name: key.name,
+						api_key: key.token,
+						warning: "Shown once. blaze stores only a hash — it cannot be recovered.",
+					}),
+				};
+			} catch (error) {
+				if (error instanceof ApiKeyLimitError) return { text: error.message, isError: true };
+				throw error;
+			}
 		}
 
 		case "delete_database": {

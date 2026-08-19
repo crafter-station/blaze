@@ -34,6 +34,13 @@ const schema = z.object({
 	CLERK_SECRET_KEY: z.string().min(1),
 
 	/**
+	 * Public origin. Load-bearing for MCP OAuth: the advertised `resource` is the audience
+	 * tokens are bound to, and behind Traefik a request-derived URL is the container's own
+	 * address, so a token would be minted for the wrong audience.
+	 */
+	APP_URL: z.string().url().optional(),
+
+	/**
 	 * Dokploy, used only to provision dedicated containers (redis, libsql).
 	 *
 	 * Optional: the shared engines never touch it, so requiring it would block a deploy on

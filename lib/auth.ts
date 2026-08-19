@@ -1,5 +1,5 @@
 import "server-only";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { eq } from "drizzle-orm";
 import { db } from "./control/db";
 import type { User } from "./control/schema";
@@ -61,4 +61,37 @@ export async function getUser(): Promise<User | null> {
 	} catch {
 		return null;
 	}
+}
+
+/**
+ * Resolve a Clerk user id to blaze's local user row, creating it if this is the first
+ * time we have seen them.
+ *
+ * Needed because the MCP OAuth flow has no browser session — an agent arrives holding an
+ * access token and nothing else. Without this, authorizing an agent would succeed and
+ * then every tool call would fail on a missing user row, which is a confusing way to
+ * discover you also had to visit the dashboard once.
+ */
+export async function ensureUserByClerkId(clerkUserId: string): Promise<User | null> {
+	const existing = await db.query.users.findFirst({
+		where: eq(users.clerkUserId, clerkUserId),
+	});
+	if (existing) return existing.suspendedAt ? null : existing;
+
+	const clerk = await clerkClient();
+	const profile = await clerk.users.getUser(clerkUserId).catch(() => null);
+	const email =
+		profile?.primaryEmailAddress?.emailAddress ?? profile?.emailAddresses[0]?.emailAddress;
+	if (!email) return null;
+
+	const [created] = await db
+		.insert(users)
+		.values({ id: newId("usr"), clerkUserId, email })
+		.onConflictDoNothing()
+		.returning();
+
+	if (created) return created;
+
+	// Lost a race with a concurrent first call; the row now exists.
+	return (await db.query.users.findFirst({ where: eq(users.clerkUserId, clerkUserId) })) ?? null;
 }

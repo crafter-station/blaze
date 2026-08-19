@@ -13,6 +13,8 @@ const isPublicRoute = createRouteMatcher([
 	"/sign-up(.*)",
 	"/waitlist(.*)",
 	"/docs(.*)",
+	// OAuth discovery: an unauthenticated client must be able to read these.
+	"/.well-known(.*)",
 	"/v1(.*)",
 	"/api/health",
 	// Authenticates with its own shared secret, not a Clerk session.
