@@ -191,10 +191,13 @@ nothing else in this plan changes.
 
 ## 9. Build order
 
-1. **Foundation** — repo, Next.js 16 + Tailwind 4 + Bun, Clerk OAuth-only, Drizzle schema,
-   migrations. Port `lib/db/*` (six drivers) and `lib/dokploy/*` (now node provisioning).
-2. **Provisioner** — shared Postgres instance on the VPS, `CREATE DATABASE` + role + grants.
-   Hostname + TLS via Traefik. Prove 200ms end to end.
+1. ~~**Foundation**~~ — **done.** Next.js 16 + Tailwind 4 + Bun, Clerk, Drizzle schema and
+   migrations applied, six drivers ported to `lib/engines/*`, `lib/dokploy/*` reduced to
+   container lifecycle.
+2. ~~**Provisioner**~~ — **done.** Shared Postgres on the VPS, `CREATE DATABASE` + scoped
+   role + grants, instance hardening, deployed to `blaze.crafter.run`. See DEPLOY.md.
+   Isolation verified by `scripts/smoke-provision.ts`. **Blocked on DNS** before tenant
+   connection strings resolve; 200ms still to be measured from inside the VPS.
 3. **REST API** — full `/v1` surface, API keys, quotas. This is the product.
 4. **MCP server** — six tools over the API. The differentiator.
 5. **Reaper + metrics** — TTL expiry, quota enforcement, 5-minute poller.

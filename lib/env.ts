@@ -2,8 +2,17 @@ import "server-only";
 import { z } from "zod";
 
 /**
- * Server environment. Validated once at module load so a misconfigured deploy fails
- * immediately and loudly rather than at the first database provision.
+ * Server environment, validated on first access.
+ *
+ * Validation is lazy, not eager, and that is load-bearing rather than a style choice.
+ * `next build` imports every route module to collect page data, so anything that throws
+ * at import time fails the build — which is exactly what happened on the first deploy:
+ * `/api/health` imports the control-plane client, which imports this, which threw because
+ * `DATABASE_URL` is a runtime secret and deliberately not a Docker build arg.
+ *
+ * Deferring to first property access keeps the useful property — a misconfigured deploy
+ * fails immediately and loudly on the first request rather than limping — without
+ * requiring secrets to be present at build time.
  */
 const schema = z.object({
 	/** blaze's own control-plane Postgres — not a tenant database. */
@@ -37,11 +46,22 @@ const schema = z.object({
 	NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 
-const parsed = schema.safeParse(process.env);
+export type Env = z.infer<typeof schema>;
 
-if (!parsed.success) {
-	const issues = parsed.error.issues.map((i) => `  ${i.path.join(".")}: ${i.message}`).join("\n");
-	throw new Error(`Invalid environment:\n${issues}`);
+let cached: Env | null = null;
+
+function load(): Env {
+	const parsed = schema.safeParse(process.env);
+	if (!parsed.success) {
+		const issues = parsed.error.issues.map((i) => `  ${i.path.join(".")}: ${i.message}`).join("\n");
+		throw new Error(`Invalid environment:\n${issues}`);
+	}
+	return parsed.data;
 }
 
-export const env = parsed.data;
+export const env = new Proxy({} as Env, {
+	get(_target, prop) {
+		if (!cached) cached = load();
+		return cached[prop as keyof Env];
+	},
+});
