@@ -143,6 +143,48 @@ almost certainly settles it.
 
 The stack is currently deployed **without** TLS so the VPS is left in a working state.
 
+## The blocker that stops Mongo, Redis and libSQL
+
+All three need a certificate file inside a container, and every attempt fails the same
+way with no diagnosable output.
+
+What is established:
+
+- **Dokploy ignores `command` on database services.** Verified on Mongo by reading
+  `getCmdLineOpts` after setting it: the running argv never changed.
+- **Compose gives back that control**, and a compose Mongo without TLS starts in ~24s —
+  so plumbing, ports, network and volumes are all fine.
+- **Every TLS variant fails identically**: deploy reports `done`, the container never
+  listens. Tried a file mount, a self-generating certificate via a custom entrypoint, and
+  an inline compose `configs:` block.
+- **Redis fails at the same point from the other direction.** It can enable TLS at runtime
+  with `CONFIG SET`, needing no `command` at all — but `CONFIG SET tls-port` returns
+  *"Unable to update TLS configuration. Check server logs."*
+
+Note on that last one: `CONFIG SET tls-cert-file` **succeeding does not prove the file
+exists**. Redis stores the path and only loads it when the TLS context is built at
+`tls-port`. An earlier note here claimed the mount was proven working; it was not.
+
+The leading hypothesis is that Dokploy's file mounts do not place a file where expected,
+so Docker bind-mounts a **directory** at that path — which would explain Mongo and Redis
+failing identically for what looks like two unrelated reasons. It is a hypothesis because
+it cannot be checked from outside.
+
+**One thing unblocks all of it: the ability to read container logs, or SSH.** Dokploy
+writes logs to `/etc/dokploy/logs/<app>/…` and exposes no endpoint for them. Redis even
+says "check server logs" — and that is precisely what is unavailable.
+
+Until then Postgres, MySQL and MariaDB are offered; Mongo has a complete, verified
+provisioner behind the flag; Redis and libSQL are not started.
+
+### Operational warnings learned the hard way
+
+- **`mongo.rebuild` runs `docker volume rm <service>-data --force`.** It is a data-loss
+  operation, not a restart. `mongo.reload` scales the service and left it down.
+- **`CONFIG SET port 0` on Redis before TLS is confirmed makes the instance unreachable**,
+  and it cannot be undone remotely because there is no port left to connect on. Always
+  bind TLS to a spare port first and only then move it onto the published one.
+
 ## Ports
 
 | Service | Port | Note |
