@@ -38,7 +38,7 @@ export function serializeDatabase(record: Database, withSecret = false): Databas
 		slug: record.slug,
 		engine: record.engine,
 		status: record.status,
-		host: connectionHost(record.engine, record.slug),
+		host: connectionHost(record.engine, record.slug, record.id),
 		port: connectionPort(record.engine),
 		database: record.dbName,
 		role: record.roleName,
@@ -52,6 +52,7 @@ export function serializeDatabase(record: Database, withSecret = false): Databas
 	if (withSecret) {
 		dto.connection_string = buildConnectionString({
 			engine: record.engine,
+			id: record.id,
 			slug: record.slug,
 			dbName: record.dbName,
 			roleName: record.roleName,

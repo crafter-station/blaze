@@ -19,6 +19,16 @@ export const LIMITS = {
 	/** Storage per database, in bytes. */
 	STORAGE_BYTES: 500 * 1024 * 1024,
 
+	/**
+	 * Storage per Redis database, in bytes — deliberately far below `STORAGE_BYTES`.
+	 *
+	 * Redis keeps its dataset in memory, so this quota is not disk that is cheap and
+	 * shared but RAM that is neither. It is applied as `maxmemory` on each tenant's own
+	 * container, which means Redis refuses the write itself rather than a sweep noticing
+	 * five minutes later that the host is already under pressure.
+	 */
+	REDIS_MEMORY_BYTES: 64 * 1024 * 1024,
+
 	/** Concurrent connections per tenant role. */
 	CONNECTION_LIMIT: 20,
 

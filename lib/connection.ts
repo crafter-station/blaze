@@ -27,17 +27,33 @@ import { env } from "./env";
 
 export interface ConnectionTarget {
 	engine: Engine;
+	/** Globally unique. Required because it, not the slug, separates dedicated tenants. */
+	id: string;
 	slug: string;
 	dbName: string;
 	roleName: string;
 	passwordEnc: string;
 }
 
+/**
+ * DNS label identifying one dedicated tenant's own container.
+ *
+ * Slugs are unique per *project*, so two different users can both own `myapp`. For a
+ * shared engine that is harmless — the database name selects the tenant. For a dedicated
+ * engine the *hostname* selects the tenant, so a slug-only label would route one user's
+ * traffic into another user's database. The database id is the only globally unique
+ * handle we have, so it carries the guarantee; the slug rides along to keep the string
+ * readable, exactly as Neon's `ep-cool-darkness-123456` does.
+ */
+export function dedicatedLabel(slug: string, databaseId: string): string {
+	return `${slug}-${databaseId.replace(/^[a-z]+_/, "")}`.slice(0, 63);
+}
+
 /** The host a tenant connects to. Never an IP. */
-export function connectionHost(engine: Engine, slug: string): string {
+export function connectionHost(engine: Engine, slug: string, databaseId: string): string {
 	const { tenancy, hostPrefix } = ENGINE_CONFIG[engine];
 	const base = `${hostPrefix}.${env.BLAZE_DOMAIN}`;
-	return tenancy === "shared" ? base : `${slug}.${base}`;
+	return tenancy === "shared" ? base : `${dedicatedLabel(slug, databaseId)}.${base}`;
 }
 
 export function connectionPort(engine: Engine): number {
@@ -49,9 +65,9 @@ export function connectionPort(engine: Engine): number {
  *        entries and any UI that shows the string before the user asks to unmask it.
  */
 export function buildConnectionString(target: ConnectionTarget, reveal = true): string {
-	const { engine, slug, dbName, roleName, passwordEnc } = target;
+	const { engine, id, slug, dbName, roleName, passwordEnc } = target;
 	const { urlScheme } = ENGINE_CONFIG[engine];
-	const host = connectionHost(engine, slug);
+	const host = connectionHost(engine, slug, id);
 	const port = connectionPort(engine);
 	const password = reveal ? encodeURIComponent(decryptSecret(passwordEnc)) : "••••••••";
 	const user = encodeURIComponent(roleName);
@@ -70,7 +86,8 @@ export function buildConnectionString(target: ConnectionTarget, reveal = true): 
 			return `${urlScheme}://${user}:${password}@${host}:${port}/${dbName}?tls=true&authSource=${dbName}`;
 
 		case "redis":
-			// Redis has no username in the default ACL; `rediss` is the TLS scheme.
+			// The tenant is the `default` user, which takes no name in the URL. `rediss` is
+			// the TLS scheme, and the listener refuses plaintext outright.
 			return `rediss://:${password}@${host}:${port}`;
 
 		case "libsql":
@@ -94,7 +111,10 @@ export function adminConnectionString(
 	const password = encodeURIComponent(decryptSecret(adminPasswordEnc));
 	const user = encodeURIComponent(adminUser);
 
-	if (engine === "redis") return `redis://:${password}@${internalHost}:${port}`;
+	// `blazeadmin`, never the tenant's `default` user: suspending a tenant switches
+	// `default` off, and sharing that account would lock blaze out of the container it
+	// still has to read stats from and eventually resume.
+	if (engine === "redis") return `rediss://${user}:${password}@${internalHost}:${port}`;
 	if (engine === "libsql") return `http://${internalHost}:${port}`;
 
 	// `no-verify` rather than `require`: the instance presents a self-signed certificate

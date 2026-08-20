@@ -84,6 +84,7 @@ export default async function OverviewPage() {
 							const expiry = formatExpiry(row.expiresAt);
 							const target = {
 								engine: row.engine,
+								id: row.id,
 								slug: row.slug,
 								dbName: row.dbName,
 								roleName: row.roleName,

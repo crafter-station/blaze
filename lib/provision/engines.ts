@@ -27,6 +27,15 @@ import {
 	resumePostgresDatabase,
 	suspendPostgresDatabase,
 } from "./postgres";
+import {
+	deprovisionRedisDatabase,
+	hardenRedisInstance,
+	provisionRedisDatabase,
+	readRedisStats,
+	resetRedisPassword,
+	resumeRedisDatabase,
+	suspendRedisDatabase,
+} from "./redis";
 
 /**
  * Per-engine operations, behind one interface.
@@ -98,12 +107,28 @@ const MONGO: EngineOps = {
 	harden: hardenMongoInstance,
 };
 
+/**
+ * The only dedicated engine so far: every tenant gets its own container, so there is no
+ * database name or role name to pass — the container is the tenant. The unused parameters
+ * are kept because the interface is what lets every caller stay engine-agnostic.
+ */
+const REDIS: EngineOps = {
+	provision: provisionRedisDatabase,
+	deprovision: deprovisionRedisDatabase,
+	suspend: (adminUrl) => suspendRedisDatabase(adminUrl),
+	resume: (adminUrl) => resumeRedisDatabase(adminUrl),
+	resetPassword: resetRedisPassword,
+	readStats: readRedisStats,
+	harden: hardenRedisInstance,
+};
+
 /** Engines with a working implementation. Not the same as engines we offer — see below. */
 export const ENGINE_OPS: Partial<Record<Engine, EngineOps>> = {
 	postgres: POSTGRES,
 	mysql: MYSQL,
 	mariadb: MYSQL,
 	mongo: MONGO,
+	redis: REDIS,
 };
 
 export function isSupported(engine: Engine): boolean {

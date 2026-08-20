@@ -50,6 +50,27 @@ const schema = z.object({
 	DOKPLOY_API_URL: z.string().url().default("https://vps.crafter.run/api"),
 	DOKPLOY_API_KEY: z.string().optional(),
 
+	/** Dokploy environment new tenant containers are created in. */
+	DOKPLOY_ENVIRONMENT_ID: z.string().optional(),
+
+	/**
+	 * Image for tenant Redis containers.
+	 *
+	 * Not `redis:8`: the stock image starts a plaintext server with no quota and a
+	 * `default` user that can rewrite its own configuration. blaze builds an image that
+	 * fixes all three at startup, because Dokploy overrides ENTRYPOINT/CMD for database
+	 * services and drops any command we would otherwise pass. Served from a registry on
+	 * the host — Swarm resolves every image through a registry, so a locally built image
+	 * it cannot pull is invisible to it.
+	 */
+	BLAZE_REDIS_IMAGE: z.string().default("127.0.0.1:5000/blaze/redis-tls:2"),
+
+	/**
+	 * Directory the SNI router watches for per-tenant routes. Bind-mounted from the host,
+	 * so writing a file here publishes a route without restarting anything.
+	 */
+	SNI_DYNAMIC_DIR: z.string().default("/sni-dynamic"),
+
 	/**
 	 * Shared secret for the metrics cron endpoint. Optional: when unset the endpoint refuses
 	 * every request rather than running unauthenticated, because that endpoint can suspend

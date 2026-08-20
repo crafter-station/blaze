@@ -25,6 +25,7 @@ export default async function DatabaseDetailPage({ params }: { params: Promise<{
 
 	const target = {
 		engine: record.engine,
+		id: record.id,
 		slug: record.slug,
 		dbName: record.dbName,
 		roleName: record.roleName,
@@ -76,7 +77,7 @@ export default async function DatabaseDetailPage({ params }: { params: Promise<{
 					masked={buildConnectionString(target, false)}
 				/>
 				<dl className="mt-6 grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
-					<Field label="Host" value={connectionHost(record.engine, record.slug)} mono />
+					<Field label="Host" value={connectionHost(record.engine, record.slug, record.id)} mono />
 					<Field label="Port" value={String(connectionPort(record.engine))} mono />
 					<Field label="Database" value={record.dbName} mono />
 					<Field label="Role" value={record.roleName} mono />

@@ -1,12 +1,17 @@
 import "server-only";
 import { and, count, eq, isNull } from "drizzle-orm";
-import { adminConnectionString, buildConnectionString } from "@/lib/connection";
+import { adminConnectionString, buildConnectionString, connectionHost } from "@/lib/connection";
 import { db } from "@/lib/control/db";
 import { auditLog, databases, projects, type User } from "@/lib/control/schema";
 import { encryptSecret, generatePassword } from "@/lib/crypto";
 import { ENGINE_CONFIG, type Engine } from "@/lib/engines/types";
 import { newId, physicalName, slugify } from "@/lib/id";
 import { LIMITS, TTL } from "@/lib/limits";
+import {
+	allocateDedicatedInstance,
+	persistDedicatedPassword,
+	releaseDedicatedInstance,
+} from "./dedicated";
 import { isSupported, opsFor } from "./engines";
 import { bumpDatabaseCount, selectInstance } from "./placement";
 
@@ -76,7 +81,29 @@ export async function createDatabase(
 	const roleName = physicalName("u", slug);
 	const password = generatePassword();
 
-	const instance = await selectInstance(engine);
+	/*
+	 * The id is generated here rather than just before the insert because a dedicated
+	 * engine derives its tenant hostname from it, and that hostname has to exist before
+	 * the container can be routed to.
+	 */
+	const id = newId("db");
+	const tenancy = ENGINE_CONFIG[engine].tenancy;
+
+	/*
+	 * A shared engine places onto an instance that is already running. A dedicated one has
+	 * nothing to place onto until a container is built for this database alone, so the
+	 * instance is created here and torn down again if anything downstream fails.
+	 */
+	const instance =
+		tenancy === "dedicated"
+			? await allocateDedicatedInstance({
+					engine,
+					databaseId: id,
+					slug,
+					tenantPassword: password,
+				})
+			: await selectInstance(engine);
+
 	const adminUrl = adminConnectionString(
 		engine,
 		instance.internalHost,
@@ -85,10 +112,20 @@ export async function createDatabase(
 		instance.adminPasswordEnc,
 	);
 
-	await opsFor(engine).provision({ adminUrl, dbName, roleName, password });
+	/** Undo a dedicated allocation. No-op for shared engines, which allocated nothing. */
+	const releaseIfDedicated = async () => {
+		if (tenancy !== "dedicated") return;
+		await releaseDedicatedInstance(instance, connectionHost(engine, slug, id)).catch(() => {});
+	};
+
+	try {
+		await opsFor(engine).provision({ adminUrl, dbName, roleName, password });
+	} catch (error) {
+		await releaseIfDedicated();
+		throw error;
+	}
 
 	const expiresAt = resolveExpiry(input.ttlMs);
-	const id = newId("db");
 
 	try {
 		await db.insert(databases).values({
@@ -111,6 +148,7 @@ export async function createDatabase(
 		await opsFor(engine)
 			.deprovision(adminUrl, dbName, roleName)
 			.catch(() => {});
+		await releaseIfDedicated();
 		throw error;
 	}
 
@@ -132,6 +170,7 @@ export async function createDatabase(
 		engine,
 		connectionString: buildConnectionString({
 			engine,
+			id,
 			slug,
 			dbName,
 			roleName,
@@ -169,6 +208,19 @@ export async function destroyDatabase(user: User, databaseId: string): Promise<v
 		.where(eq(databases.id, databaseId));
 
 	await bumpDatabaseCount(record.instanceId, -1);
+
+	/*
+	 * For a dedicated engine the container *is* the database, so dropping the tenant means
+	 * destroying it. Done after the row is marked deleted: if this fails, the user still
+	 * sees their database as gone and the orphaned container is visible in Dokploy, which
+	 * is the failure that is easiest to notice and clean up.
+	 */
+	if (record.tenancy === "dedicated") {
+		await releaseDedicatedInstance(
+			record.instance,
+			connectionHost(record.engine, record.slug, record.id),
+		);
+	}
 
 	await db.insert(auditLog).values({
 		id: newId("db"),
@@ -213,6 +265,15 @@ export async function resetDatabasePassword(user: User, databaseId: string): Pro
 	const password = generatePassword();
 	await opsFor(record.engine).resetPassword(adminUrl, record.roleName, password);
 
+	/*
+	 * A dedicated container is started from a service definition that carries the old
+	 * password, so changing only the running server would let a restart resurrect the
+	 * credential the user just rotated away from.
+	 */
+	if (record.tenancy === "dedicated") {
+		await persistDedicatedPassword(record.instance, password);
+	}
+
 	const passwordEnc = encryptSecret(password);
 	await db.update(databases).set({ passwordEnc }).where(eq(databases.id, databaseId));
 
@@ -226,6 +287,7 @@ export async function resetDatabasePassword(user: User, databaseId: string): Pro
 
 	return buildConnectionString({
 		engine: record.engine,
+		id: record.id,
 		slug: record.slug,
 		dbName: record.dbName,
 		roleName: record.roleName,
