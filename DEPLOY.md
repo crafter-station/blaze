@@ -105,36 +105,43 @@ blaze's own admin connections use `sslmode=no-verify`: the certificate is one bl
 generated on that instance, so there is no chain to validate, but the hop is encrypted.
 
 
-## MongoDB — implemented, not offered
+## MongoDB — implemented, not offered (TLS unresolved)
 
-`blaze-mongo-1` (mongo:8) runs on `mongo.blaze.crafter.run:27017`, and
-`lib/provision/mongo.ts` is complete and verified against it: tenants own their database,
-cannot touch another tenant's or `admin`, stats report, and suspend/resume work.
+`lib/provision/mongo.ts` is complete and verified against a live instance: tenants own
+their database, cannot touch another tenant's or `admin`, stats report, suspend/resume
+work. It is deliberately absent from `PROVISIONABLE` because TLS cannot be enforced, and
+Postgres and MySQL both refuse plaintext while the landing page promises TLS.
 
-**It is deliberately absent from `PROVISIONABLE`, so nobody can create one yet**, because
-the instance cannot be made to require TLS:
+The instance now runs as a **compose stack** (`blaze-mongo-tls`, composeId
+`BDaAhTKPE2QtCcOgccACu`) rather than a Dokploy `mongo` service, because that abstraction
+stores a `command` and never passes it to the container — confirmed by reading
+`getCmdLineOpts`, which kept showing `["mongod","--auth","--bind_ip_all"]`.
 
-- Dokploy stores a `command` for Mongo services but never passes it to the container.
-  Setting `mongod --tlsMode requireTLS ...` and redeploying leaves the running argv as
-  `["mongod","--auth","--bind_ip_all"]` — verified with `getCmdLineOpts`.
-- The certificate itself is not the problem; a file mount at `/etc/mongo-tls/mongo.pem`
-  was created successfully. mongod simply never receives the flag telling it to use it.
+### What is actually blocking it
 
-Postgres and MySQL both refuse unencrypted connections, and the landing page says
-"Connections require TLS". Offering a plaintext engine would make that false.
+Compose runs Mongo fine. **Every variant that enables TLS fails to start**, and all three
+attempts failed identically — the deploy reports `done`, the container never listens:
 
-Two ways to unblock it, both needing access beyond the Dokploy database abstraction:
+| Attempt | Result |
+|---|---|
+| Dokploy file mount at `/etc/mongo-tls/mongo.pem` + TLS flags | never listens |
+| Self-generating cert on the data volume via a custom `entrypoint` | never listens |
+| Inline compose `configs:` with `content:` | never listens |
 
-1. Run Mongo as a **compose stack** instead of a Dokploy `mongo` service, where the
-   service definition — command, config file, certificate — is ours to write.
-2. Terminate TLS at Traefik with a TCP router, the same path that would give Postgres a
-   publicly trusted certificate.
+The baseline — identical compose minus the TLS flags and certificate — starts in ~24s
+every time. So the fault is in the TLS setup, not the compose plumbing, ports, network or
+volume.
 
-**Do not call `mongo.rebuild` or `mongo.reload`.** Rebuild attempts
-`docker volume rm <service>-data --force`, and reload scales the service; together they
-took the instance down. It was recovered with `mongo.update` (clearing the command) plus
-`mongo.deploy`, and no tenant data existed at the time — but on a populated instance
-rebuild is a data-loss operation.
+**Diagnosis is blocked on container logs.** Dokploy writes them to
+`/etc/dokploy/logs/<app>/…` on the VPS, and no API endpoint exposes them. Without stderr
+from a crash-looping mongod this is guesswork: the plausible causes (certificate
+permissions or ownership, the file never landing at that path, `preferTLS` interacting
+with the image's init step) are indistinguishable from outside.
+
+**Next step: SSH, or any way to read those logs.** One look at the container's stderr
+almost certainly settles it.
+
+The stack is currently deployed **without** TLS so the VPS is left in a working state.
 
 ## Ports
 
