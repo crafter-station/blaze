@@ -27,6 +27,11 @@ import type { EngineStats, ProvisionRequest } from "./engines";
  *   moment of the write, instead of a sweep noticing five minutes late — and `noeviction`
  *   means an over-quota tenant is told its write failed rather than silently losing keys
  *   it believes it stored.
+ * - **Durability is the append-only log, not snapshots.** Stock Redis writes to its volume
+ *   only when a snapshot threshold is reached, which by default can take an hour; a tenant
+ *   that wrote one key and was restarted minutes later came back empty, having never
+ *   touched the disk it was mounted. `appendonly yes` makes every write durable within a
+ *   second, which is the promise a database product is actually making.
  */
 
 /**

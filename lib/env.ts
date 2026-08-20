@@ -63,7 +63,7 @@ const schema = z.object({
 	 * the host — Swarm resolves every image through a registry, so a locally built image
 	 * it cannot pull is invisible to it.
 	 */
-	BLAZE_REDIS_IMAGE: z.string().default("127.0.0.1:5000/blaze/redis-tls:2"),
+	BLAZE_REDIS_IMAGE: z.string().default("127.0.0.1:5000/blaze/redis-tls:3"),
 
 	/**
 	 * Directory the SNI router watches for per-tenant routes. Bind-mounted from the host,
