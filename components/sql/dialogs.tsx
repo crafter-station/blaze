@@ -269,3 +269,50 @@ export function ConfirmDelete({
 		</AlertDialog>
 	);
 }
+
+/** EXPLAIN ANALYZE executes the statement; ask first when it is not a plain read. */
+export function ConfirmAnalyze({
+	statement,
+	engine,
+	onClose,
+	onConfirm,
+}: {
+	statement: string | null;
+	engine: string;
+	onClose: () => void;
+	onConfirm: () => void;
+}) {
+	return (
+		<AlertDialog open={!!statement} onOpenChange={(open) => !open && onClose()}>
+			<AlertDialogContent className="sm:max-w-lg">
+				<AlertDialogHeader>
+					<AlertDialogTitle className="flex items-center gap-2">
+						<TriangleAlert className="size-4 text-warning" />
+						ANALYZE runs this statement
+					</AlertDialogTitle>
+					<AlertDialogDescription>
+						To measure real rows and timings the statement executes inside a transaction that is
+						rolled back afterwards.{" "}
+						{engine === "postgres"
+							? "Sequences still advance and functions with side effects still run."
+							: "DDL commits implicitly in MySQL and MariaDB and cannot be rolled back."}
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border bg-[var(--code-background)] px-3 py-2 font-mono text-xs leading-relaxed">
+					{statement && statement.length > 1200 ? `${statement.slice(0, 1200)}…` : statement}
+				</pre>
+				<AlertDialogFooter>
+					<AlertDialogCancel>Cancel</AlertDialogCancel>
+					<AlertDialogAction
+						onClick={() => {
+							onConfirm();
+							onClose();
+						}}
+					>
+						Run with ANALYZE
+					</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+	);
+}

@@ -56,6 +56,8 @@ export interface ExtraResultTab {
 	id: string;
 	label: ReactNode;
 	content: ReactNode;
+	/** Status line shown while this tab is active. */
+	footer?: ReactNode;
 }
 
 function commandSummary(outcome: StatementOutcome): string {
@@ -328,7 +330,9 @@ export function ResultsPanel({
 			)}
 
 			<footer className="flex h-8 shrink-0 items-center gap-3 border-border border-t px-3 text-[0.6875rem] text-muted-foreground">
-				{pending ? (
+				{showingExtra && extraTab?.footer && !pending ? (
+					extraTab.footer
+				) : pending ? (
 					<span className="font-mono tabular-nums">Running… {formatMs(elapsed)}</span>
 				) : outcome && !showingExtra ? (
 					<>

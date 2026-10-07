@@ -12,6 +12,7 @@ import {
 	type SavedQueryView,
 	updateSavedQuery,
 } from "@/lib/saved-queries";
+import { type ExplainOutcome, explainStatement } from "@/lib/sql/explain-run";
 import { introspectSchema, tableDdl } from "@/lib/sql/introspect";
 import type { BatchOutcome, SchemaSnapshot } from "@/lib/sql/types";
 
@@ -103,6 +104,24 @@ export async function runSqlAction(
 
 	const results = await runTenantBatch(owned.record, list);
 	return { ok: results.every((r) => r.ok), results };
+}
+
+/**
+ * EXPLAIN one statement. With `analyze`, the statement actually runs (inside a transaction
+ * that is rolled back); the console only sends that after an explicit opt-in.
+ */
+export async function explainAction(
+	databaseId: string,
+	statement: string,
+	analyze: boolean,
+): Promise<ExplainOutcome> {
+	const owned = await ownedSqlDatabase(databaseId);
+	if ("error" in owned) return { ok: false, error: owned.error };
+	try {
+		return await explainStatement(owned.record, String(statement ?? ""), analyze === true);
+	} catch (error) {
+		return { ok: false, error: message(error, "EXPLAIN failed") };
+	}
 }
 
 /* ------------------------------------------------------------------ *

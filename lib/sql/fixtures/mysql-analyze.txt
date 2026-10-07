@@ -1,0 +1,4 @@
+-> Limit: 20 row(s)  (cost=99.6 rows=20) (actual time=1.07..1.1 rows=20 loops=1)
+    -> Nested loop inner join  (cost=99.6 rows=203) (actual time=0.768..0.799 rows=20 loops=1)
+        -> Index lookup on o using orders_status_created_at_idx (status='paid') (reverse)  (cost=28.6 rows=203) (actual time=0.698..0.714 rows=20 loops=1)
+        -> Single-row index lookup on c using PRIMARY (id=o.customer_id)  (cost=0.25 rows=1) (actual time=0.00249..0.00251 rows=1 loops=20)

@@ -204,6 +204,14 @@ for (const mode of modes) {
 				await page.waitForTimeout(400);
 				check((await page.locator("[data-plan-node]").count()) > 0, `${tag}: plan tree renders`);
 				await shot(page, `${tag}-explain`, mode, width);
+				const analyze = page.getByRole("button", { name: "Run with ANALYZE" });
+				if (await analyze.count()) {
+					await analyze.click();
+					await waitIdle(page);
+					await page.waitForTimeout(400);
+					check((await page.getByText("Analyzed", { exact: true }).count()) > 0, `${tag}: ANALYZE plan renders`);
+					await shot(page, `${tag}-explain-analyze`, mode, width);
+				}
 			}
 
 			if (run("library")) {

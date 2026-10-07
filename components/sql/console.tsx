@@ -5,10 +5,12 @@ import {
 	ChevronDown,
 	Command as CommandIcon,
 	FilePlus2,
+	Gauge,
 	History,
 	Keyboard,
 	ListTree,
 	Loader2,
+	Network,
 	PanelLeft,
 	PanelLeftClose,
 	Play,
@@ -23,6 +25,7 @@ import { toast } from "sonner";
 import { format as formatSql } from "sql-formatter";
 import {
 	deleteSavedQueryAction,
+	explainAction,
 	introspectAction,
 	listSavedQueriesAction,
 	runSqlAction,
@@ -45,13 +48,15 @@ import {
 	SheetTitle,
 } from "@/components/ui/sheet";
 import type { SavedQueryView } from "@/lib/saved-queries";
-import { detectDestructive } from "@/lib/sql/destructive";
+import { detectDestructive, isReadOnlyQuery } from "@/lib/sql/destructive";
 import { DIALECTS, qualifiedName } from "@/lib/sql/dialect";
 import { locateError } from "@/lib/sql/error-position";
+import { normalizePlan, supportsAnalyze } from "@/lib/sql/explain";
 import { type Statement, splitStatements, statementAt, statementsInRange } from "@/lib/sql/split";
 import type { SchemaSnapshot, SchemaTable, SqlEngine } from "@/lib/sql/types";
 import { cn } from "@/lib/utils";
 import {
+	ConfirmAnalyze,
 	ConfirmDelete,
 	ConfirmDestructive,
 	DdlDialog,
@@ -59,8 +64,9 @@ import {
 	type PendingConfirmation,
 } from "./dialogs";
 import { type EditorApi, type EditorError, type EditorHandlers, SqlCodeEditor } from "./editor";
+import { type ExplainState, ExplainView } from "./explain-view";
 import { clearHistory, type HistoryEntry, pushHistory, readHistory } from "./history";
-import { isMacPlatform, useMediaQuery } from "./hooks";
+import { formatMs, isMacPlatform, useMediaQuery } from "./hooks";
 import { QueryHistory, SavedQueries } from "./library";
 import { CommandPalette, type PaletteAction, ShortcutsDialog } from "./palette";
 import { ResultsPanel, type RunEntry, type RunRecord } from "./results-panel";
@@ -102,6 +108,7 @@ interface TabResults {
 	active: number | string;
 	/** Document text at the time of the run, to map error offsets after edits. */
 	doc: string;
+	explain?: ExplainState & { from: number; to: number; doc: string; errorPosition?: number };
 }
 
 const STARTERS: Record<SqlEngine, string> = {
@@ -551,6 +558,120 @@ export function SqlConsole(props: ConsoleProps) {
 		}
 	}, [engine]);
 
+	/* ---------------- EXPLAIN ---------------- */
+
+	const [analyzeConfirm, setAnalyzeConfirm] = useState<{
+		statement: string;
+		run: () => void;
+	} | null>(null);
+
+	const runExplain = useCallback(
+		async (statement: Statement, analyze: boolean, tabId: string, doc: string) => {
+			const base = { statement: statement.text, from: statement.from, to: statement.to, doc };
+			setResults((map) => ({
+				...map,
+				[tabId]: {
+					...(map[tabId] ?? { run: null, doc }),
+					active: "plan",
+					explain: { ...base, status: "loading", analyzed: analyze },
+				},
+			}));
+			setPending({ tabId, since: Date.now() });
+			let explain: NonNullable<TabResults["explain"]>;
+			try {
+				const result = await explainAction(databaseId, statement.text, analyze);
+				if (result.ok) {
+					try {
+						const tree = normalizePlan(result.format, result.raw);
+						explain = {
+							...base,
+							status: "done",
+							analyzed: result.analyzed,
+							tree,
+							raw: result.raw,
+							durationMs: result.durationMs,
+						};
+					} catch {
+						explain = {
+							...base,
+							status: "error",
+							analyzed: analyze,
+							raw: result.raw,
+							error: "The engine returned a plan this console could not read.",
+						};
+					}
+				} else {
+					explain = {
+						...base,
+						status: "error",
+						analyzed: analyze,
+						error: result.error,
+						errorPosition: result.errorPosition,
+					};
+				}
+			} catch {
+				explain = {
+					...base,
+					status: "error",
+					analyzed: analyze,
+					error: "Could not reach the server.",
+				};
+			}
+			setPending(null);
+			setResults((map) => ({
+				...map,
+				[tabId]: { ...(map[tabId] ?? { run: null, doc }), active: "plan", explain },
+			}));
+			if (explain.status === "error" && tabId === activeIdRef.current) {
+				markError(
+					{
+						text: explain.statement,
+						from: explain.from,
+						to: explain.to,
+						outcome: {
+							ok: false,
+							error: explain.error,
+							errorPosition: explain.errorPosition,
+							columns: [],
+							rows: [],
+							rowCount: 0,
+							truncated: false,
+							durationMs: 0,
+						},
+					},
+					doc,
+				);
+			}
+		},
+		[databaseId, markError],
+	);
+
+	const explain = useCallback(
+		(analyze: boolean) => {
+			if (pending) return;
+			const statements = collect("cursor");
+			if (statements.length !== 1) {
+				toast.message(
+					statements.length === 0 ? "Nothing to explain" : "Explain one statement at a time",
+					{
+						description: "Put the cursor in a statement, or select exactly one.",
+					},
+				);
+				return;
+			}
+			const [statement] = statements;
+			const tabId = activeIdRef.current;
+			const doc = apiRef.current?.getDoc() ?? "";
+			const go = () => void runExplain(statement, analyze && supportsAnalyze(engine), tabId, doc);
+			if (analyze && supportsAnalyze(engine) && !isReadOnlyQuery(statement.text, engine)) {
+				setAnalyzeConfirm({ statement: statement.text, run: go });
+				return;
+			}
+			go();
+		},
+		[pending, collect, runExplain, engine],
+	);
+
 	/* ---------------- handlers bound into the editor keymap ---------------- */
 
 	const handlers = useRef<EditorHandlers>({
@@ -564,7 +685,7 @@ export function SqlConsole(props: ConsoleProps) {
 	handlers.current = {
 		run: () => runStatements(collect("cursor")),
 		runAll: () => runStatements(collect("all")),
-		explain: () => toast.message("EXPLAIN is coming in the next step."),
+		explain: () => explain(false),
 		format,
 		save,
 		palette: () => setPaletteOpen(true),
@@ -772,6 +893,22 @@ export function SqlConsole(props: ConsoleProps) {
 			run: () => handlers.current.runAll(),
 		},
 		{
+			id: "explain",
+			label: "Explain statement",
+			icon: Network,
+			shortcut: `⇧${mod}E`,
+			keywords: ["plan", "query plan"],
+			run: () => explain(false),
+		},
+		{
+			id: "explain-analyze",
+			label: "Explain with ANALYZE",
+			icon: Gauge,
+			keywords: ["plan", "timing", "profile"],
+			disabled: !supportsAnalyze(engine),
+			run: () => explain(true),
+		},
+		{
 			id: "format",
 			label: "Format SQL",
 			icon: WandSparkles,
@@ -806,6 +943,7 @@ export function SqlConsole(props: ConsoleProps) {
 			items: [
 				{ keys: [key, "Enter"], label: "Run statement at cursor, or the selection" },
 				{ keys: ["Shift", key, "Enter"], label: "Run every statement" },
+				{ keys: ["Shift", key, "E"], label: "Explain the statement at the cursor" },
 			],
 		},
 		{
@@ -975,6 +1113,45 @@ export function SqlConsole(props: ConsoleProps) {
 								</DropdownMenuContent>
 							</DropdownMenu>
 						</div>
+						<div className="flex items-center">
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={() => explain(false)}
+								disabled={!!pending}
+								className="rounded-r-none"
+								title={`Explain the statement at the cursor (⇧${mod}E)`}
+							>
+								<Network data-icon="inline-start" />
+								<span className="hidden sm:inline">Explain</span>
+							</Button>
+							{supportsAnalyze(engine) && (
+								<DropdownMenu>
+									<DropdownMenuTrigger asChild>
+										<Button
+											variant="ghost"
+											size="icon-sm"
+											disabled={!!pending}
+											className="-ml-0.5 rounded-l-none"
+											aria-label="More explain options"
+										>
+											<ChevronDown />
+										</Button>
+									</DropdownMenuTrigger>
+									<DropdownMenuContent align="start" className="min-w-64">
+										<DropdownMenuItem onSelect={() => explain(false)}>
+											<Network className="text-muted-foreground" />
+											Explain (plan only)
+											<DropdownMenuShortcut>⇧{mod}E</DropdownMenuShortcut>
+										</DropdownMenuItem>
+										<DropdownMenuItem onSelect={() => explain(true)}>
+											<Gauge className="text-muted-foreground" />
+											Explain with ANALYZE (runs it)
+										</DropdownMenuItem>
+									</DropdownMenuContent>
+								</DropdownMenu>
+							)}
+						</div>
 						<Button variant="ghost" size="sm" onClick={format} title="Format SQL (Shift+Alt+F)">
 							<WandSparkles data-icon="inline-start" />
 							<span className="hidden sm:inline">Format</span>
@@ -1061,6 +1238,71 @@ export function SqlConsole(props: ConsoleProps) {
 									}))
 								}
 								exportName={`${databaseName}-${active.title.replace(/\W+/g, "-").toLowerCase()}`}
+								extraTab={
+									current?.explain
+										? {
+												id: "plan",
+												footer:
+													current.explain.status === "done" &&
+													current.explain.durationMs !== undefined ? (
+														<span className="font-mono tabular-nums">
+															{current.explain.analyzed ? "Executed and planned" : "Planned"} in{" "}
+															{formatMs(current.explain.durationMs)}
+															{current.explain.analyzed ? " · changes rolled back" : ""}
+														</span>
+													) : undefined,
+												label: (
+													<>
+														<Network className="size-3.5" />
+														{current.explain.analyzed ? "Plan (analyzed)" : "Plan"}
+													</>
+												),
+												content: (
+													<ExplainView
+														state={current.explain}
+														canAnalyze={supportsAnalyze(engine)}
+														onAnalyze={() => {
+															const plan = current.explain;
+															if (!plan) return;
+															const statement = {
+																text: plan.statement,
+																from: plan.from,
+																to: plan.to,
+																end: plan.to,
+															};
+															const go = () =>
+																void runExplain(statement, true, active.id, plan.doc);
+															if (!isReadOnlyQuery(plan.statement, engine)) {
+																setAnalyzeConfirm({ statement: plan.statement, run: go });
+															} else go();
+														}}
+														onShowError={() =>
+															current.explain
+																? markError(
+																		{
+																			text: current.explain.statement,
+																			from: current.explain.from,
+																			to: current.explain.to,
+																			outcome: {
+																				ok: false,
+																				error: current.explain.error,
+																				errorPosition: current.explain.errorPosition,
+																				columns: [],
+																				rows: [],
+																				rowCount: 0,
+																				truncated: false,
+																				durationMs: 0,
+																			},
+																		},
+																		current.explain.doc,
+																	)
+																: false
+														}
+													/>
+												),
+											}
+										: null
+								}
 							/>
 						</div>
 					</div>
@@ -1080,6 +1322,12 @@ export function SqlConsole(props: ConsoleProps) {
 			)}
 
 			<ConfirmDestructive pending={confirm} onClose={() => setConfirm(null)} />
+			<ConfirmAnalyze
+				statement={analyzeConfirm?.statement ?? null}
+				engine={engine}
+				onClose={() => setAnalyzeConfirm(null)}
+				onConfirm={() => analyzeConfirm?.run()}
+			/>
 			<NameDialog
 				state={nameDialog}
 				onClose={() => setNameDialog(null)}

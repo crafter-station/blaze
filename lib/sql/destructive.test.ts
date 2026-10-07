@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { detectDestructive } from "./destructive";
+import { detectDestructive, isReadOnlyQuery } from "./destructive";
 
 const kind = (sql: string, engine: Parameters<typeof detectDestructive>[1] = "postgres") =>
 	detectDestructive(sql, engine)?.kind ?? null;
@@ -74,5 +74,24 @@ describe("detectDestructive", () => {
 		expect(kind("select * from orders")).toBeNull();
 		expect(kind("insert into orders (id) values (1)")).toBeNull();
 		expect(kind("")).toBeNull();
+	});
+});
+
+describe("isReadOnlyQuery", () => {
+	test("plain reads", () => {
+		expect(isReadOnlyQuery("select * from orders", "postgres")).toBe(true);
+		expect(isReadOnlyQuery("with x as (select 1) select * from x", "postgres")).toBe(true);
+		expect(isReadOnlyQuery("select * from orders for update", "postgres")).toBe(true);
+		expect(isReadOnlyQuery("show tables", "mysql")).toBe(true);
+	});
+
+	test("anything that writes", () => {
+		expect(isReadOnlyQuery("update orders set a = 1 where id = 1", "postgres")).toBe(false);
+		expect(
+			isReadOnlyQuery("with d as (delete from t returning *) select * from d", "postgres"),
+		).toBe(false);
+		expect(isReadOnlyQuery("select * into backup from orders", "postgres")).toBe(false);
+		expect(isReadOnlyQuery("create table t (a int)", "postgres")).toBe(false);
+		expect(isReadOnlyQuery("", "postgres")).toBe(false);
 	});
 });

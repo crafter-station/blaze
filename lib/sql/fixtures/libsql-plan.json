@@ -1,0 +1,4 @@
+[
+	[6, 0, 0, "SEARCH o USING INDEX orders_status_created_at_idx (status=?)"],
+	[11, 0, 0, "SEARCH c USING INTEGER PRIMARY KEY (rowid=?)"]
+]

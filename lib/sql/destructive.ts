@@ -141,3 +141,28 @@ function objectWord(tokens: Token[], index: number): string {
 	}
 	return "";
 }
+
+const READ_VERBS = new Set(["SELECT", "VALUES", "TABLE", "SHOW"]);
+const WRITE_WORDS = new Set(["INSERT", "UPDATE", "DELETE", "MERGE", "REPLACE", "INTO"]);
+
+/**
+ * Whether a statement only reads: a SELECT (optionally behind read-only CTEs), VALUES,
+ * TABLE or SHOW, with no data-modifying CTE and no SELECT … INTO. Used to decide whether
+ * EXPLAIN ANALYZE, which executes the statement, needs a confirmation first.
+ */
+export function isReadOnlyQuery(sql: string, engine: SqlEngine): boolean {
+	const tokens = significant(lex(sql, engine));
+	if (tokens.length === 0) return false;
+	const depths = depthsOf(tokens);
+	const verbIndex = mainVerbIndex(tokens, depths);
+	if (verbIndex === -1 || !READ_VERBS.has(upper(tokens[verbIndex]))) return false;
+	for (let i = 0; i < tokens.length; i++) {
+		const word = upper(tokens[i]);
+		if (!WRITE_WORDS.has(word)) continue;
+		const before = i > 0 ? upper(tokens[i - 1]) : "";
+		// `FOR UPDATE` locks rows but writes nothing; anything else that writes disqualifies.
+		if (word === "UPDATE" && (before === "FOR" || before === "KEY")) continue;
+		return false;
+	}
+	return true;
+}

@@ -27,6 +27,9 @@ export function useElapsed(active: boolean, since: number | null): number {
 }
 
 export function formatMs(ms: number): string {
+	if (Number.isInteger(ms) && ms < 1000) return `${ms} ms`;
+	if (ms < 1) return `${ms.toFixed(2)} ms`;
+	if (ms < 10) return `${ms.toFixed(1)} ms`;
 	if (ms < 1000) return `${Math.round(ms)} ms`;
 	if (ms < 60_000) return `${(ms / 1000).toFixed(ms < 10_000 ? 2 : 1)} s`;
 	return `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`;

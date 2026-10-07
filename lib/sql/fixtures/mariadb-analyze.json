@@ -1,0 +1,62 @@
+{
+	"query_optimization": {
+		"r_total_time_ms": 0.062278769
+	},
+	"query_block": {
+		"select_id": 1,
+		"cost": 0.39638996,
+		"r_loops": 1,
+		"r_total_time_ms": 0.210264285,
+		"nested_loop": [
+			{
+				"table": {
+					"table_name": "o",
+					"access_type": "ref",
+					"possible_keys": ["orders_customer_id_idx", "orders_status_created_at_idx"],
+					"key": "orders_status_created_at_idx",
+					"key_length": "66",
+					"used_key_parts": ["status"],
+					"ref": ["const"],
+					"loops": 1,
+					"r_loops": 1,
+					"rows": 203,
+					"r_rows": 20,
+					"cost": 0.21236104,
+					"r_table_time_ms": 0.112307564,
+					"r_other_time_ms": 0.008026701,
+					"r_engine_stats": {
+						"pages_accessed": 50
+					},
+					"filtered": 100,
+					"r_total_filtered": 100,
+					"attached_condition": "o.`status` <=> 'paid' and o.`status` = 'paid'",
+					"r_filtered": 100
+				}
+			},
+			{
+				"table": {
+					"table_name": "c",
+					"access_type": "eq_ref",
+					"possible_keys": ["PRIMARY"],
+					"key": "PRIMARY",
+					"key_length": "4",
+					"used_key_parts": ["id"],
+					"ref": ["db_shop_dev.o.customer_id"],
+					"loops": 203,
+					"r_loops": 20,
+					"rows": 1,
+					"r_rows": 1,
+					"cost": 0.18402892,
+					"r_table_time_ms": 0.061757484,
+					"r_other_time_ms": 0.005303105,
+					"r_engine_stats": {
+						"pages_accessed": 40
+					},
+					"filtered": 100,
+					"r_total_filtered": 100,
+					"r_filtered": 100
+				}
+			}
+		]
+	}
+}
