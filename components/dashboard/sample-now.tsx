@@ -4,6 +4,7 @@ import { Loader2, RefreshCw } from "lucide-react";
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { sampleDatabaseAction } from "@/app/actions";
+import { Button } from "@/components/ui/button";
 
 /**
  * The sweep runs every 5 minutes, which is right for quota enforcement and wrong for
@@ -13,8 +14,8 @@ export function SampleNow({ id }: { id: string }) {
 	const [pending, start] = useTransition();
 
 	return (
-		<button
-			type="button"
+		<Button
+			variant="outline"
 			disabled={pending}
 			onClick={() =>
 				start(async () => {
@@ -23,10 +24,13 @@ export function SampleNow({ id }: { id: string }) {
 					else toast.error(result.error ?? "Failed to sample");
 				})
 			}
-			className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm transition-colors hover:bg-accent disabled:opacity-60"
 		>
-			{pending ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+			{pending ? (
+				<Loader2 className="animate-spin" data-icon="inline-start" />
+			) : (
+				<RefreshCw data-icon="inline-start" />
+			)}
 			{pending ? "Sampling" : "Sample now"}
-		</button>
+		</Button>
 	);
 }

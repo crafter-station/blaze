@@ -57,11 +57,14 @@ export function Isotype({
 	className,
 	animated = false,
 	title,
+	bold = false,
 }: {
 	className?: string;
 	/** Flicker the core. Decorative only; stops under prefers-reduced-motion. */
 	animated?: boolean;
 	title?: string;
+	/** Fatter dots for sizes under ~24px, where thin dots antialias into a brown smudge. */
+	bold?: boolean;
 }) {
 	return (
 		<svg
@@ -77,7 +80,7 @@ export function Isotype({
 					key={`${x}-${y}`}
 					cx={x * 10 + 5}
 					cy={y * 10 + 5}
-					r={3.7}
+					r={bold ? 4.5 : 3.7}
 					className={cn(
 						core ? "fill-brand-core" : "fill-brand",
 						animated && core && "blaze-flicker",
@@ -117,7 +120,7 @@ export function Logo({
 
 	return (
 		<span className={cn("inline-flex items-center gap-2", className)}>
-			<Isotype className={iso} animated={animated} />
+			<Isotype className={iso} animated={animated} bold={size !== "lg"} />
 			<Wordmark className={word} />
 		</span>
 	);

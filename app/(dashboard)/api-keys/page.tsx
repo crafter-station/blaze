@@ -1,5 +1,15 @@
 import { KeyRound } from "lucide-react";
+import { CodeBlock } from "@/components/code-block";
+import { EmptyState, PageHeader, Panel } from "@/components/console/page";
 import { CreateApiKey, RevokeApiKey } from "@/components/dashboard/api-keys";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table";
 import { listApiKeys } from "@/lib/api-keys";
 import { requireUser } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
@@ -20,83 +30,81 @@ function formatLastUsed(date: Date | null): string {
 export default async function ApiKeysPage() {
 	const user = await requireUser();
 	const keys = await listApiKeys(user.id);
+	const atLimit = keys.length >= LIMITS.API_KEYS_PER_USER;
 
 	return (
 		<div className="space-y-8">
-			<div className="flex flex-wrap items-start justify-between gap-4">
-				<div>
-					<h1 className="font-semibold text-[34px] leading-tight tracking-tight">API keys</h1>
-					<p className="mt-2 max-w-xl text-muted-foreground text-sm">
-						Authenticate to the blaze API and MCP server. Keys act as you and reach every database
-						you own.
-					</p>
-				</div>
-				<CreateApiKey atLimit={keys.length >= LIMITS.API_KEYS_PER_USER} />
-			</div>
+			<PageHeader
+				title="API keys"
+				description="Authenticate to the blaze API and MCP server. Keys act as you and reach every database you own."
+				actions={<CreateApiKey atLimit={atLimit} />}
+			/>
 
-			<section className="overflow-hidden rounded-xl border border-border bg-card">
+			<Panel>
 				{keys.length === 0 ? (
-					<div className="px-7 py-20 text-center">
-						<KeyRound className="mx-auto mb-4 size-8 text-muted-foreground/50" />
-						<p className="font-medium">No API keys yet</p>
-						<p className="mx-auto mt-1.5 max-w-md text-muted-foreground text-sm">
-							Create one to provision databases from a script, an agent, or the MCP server instead
-							of this dashboard.
-						</p>
-					</div>
+					<EmptyState
+						icon={KeyRound}
+						title="No API keys yet"
+						description="Create one to provision databases from a script, an agent, or the MCP server instead of this dashboard."
+						action={<CreateApiKey atLimit={atLimit} />}
+					/>
 				) : (
-					<div className="overflow-x-auto">
-						<table className="w-full min-w-[680px] text-sm">
-							<thead>
-								<tr className="border-border border-b text-left text-muted-foreground text-xs">
-									<th className="px-7 py-3.5 font-medium">Name</th>
-									<th className="px-4 py-3.5 font-medium">Key</th>
-									<th className="px-4 py-3.5 font-medium">Created</th>
-									<th className="px-4 py-3.5 font-medium">Last used</th>
-									<th className="px-7 py-3.5" />
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-border">
-								{keys.map((key) => (
-									<tr key={key.id} className="transition-colors hover:bg-accent/40">
-										<td className="px-7 py-4">
-											<span className="flex items-center gap-3">
-												<span className="flex size-8 items-center justify-center rounded-lg border border-border bg-background">
-													<KeyRound className="size-3.5 text-muted-foreground" />
-												</span>
-												<span className="font-medium">{key.name}</span>
+					<Table className="min-w-[640px]">
+						<TableHeader>
+							<TableRow className="hover:bg-transparent">
+								<TableHead>Name</TableHead>
+								<TableHead>Key</TableHead>
+								<TableHead>Created</TableHead>
+								<TableHead>Last used</TableHead>
+								<TableHead>
+									<span className="sr-only">Actions</span>
+								</TableHead>
+							</TableRow>
+						</TableHeader>
+						<TableBody>
+							{keys.map((key) => (
+								<TableRow key={key.id}>
+									<TableCell>
+										<span className="flex items-center gap-3">
+											<span className="flex size-7 items-center justify-center rounded-md border border-border bg-background">
+												<KeyRound className="size-3.5 text-muted-foreground" strokeWidth={1.75} />
 											</span>
-										</td>
-										<td className="px-4 py-4 font-mono text-muted-foreground text-xs">
-											{key.keyPrefix}…
-										</td>
-										<td className="px-4 py-4 text-muted-foreground">{formatDate(key.createdAt)}</td>
-										<td className="px-4 py-4 text-muted-foreground">
-											{formatLastUsed(key.lastUsedAt)}
-										</td>
-										<td className="px-7 py-4 text-right">
-											<RevokeApiKey id={key.id} name={key.name} />
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
+											<span className="font-medium">{key.name}</span>
+										</span>
+									</TableCell>
+									<TableCell className="font-mono text-[0.8125rem] text-muted-foreground">
+										{key.keyPrefix}…
+									</TableCell>
+									<TableCell className="text-muted-foreground">
+										{formatDate(key.createdAt)}
+									</TableCell>
+									<TableCell className="text-muted-foreground">
+										{formatLastUsed(key.lastUsedAt)}
+									</TableCell>
+									<TableCell className="text-right">
+										<RevokeApiKey id={key.id} name={key.name} />
+									</TableCell>
+								</TableRow>
+							))}
+						</TableBody>
+					</Table>
 				)}
-			</section>
+			</Panel>
 
-			<section className="rounded-xl border border-border bg-card p-7">
-				<h2 className="mb-4 font-medium">Using a key</h2>
-				<pre className="overflow-x-auto rounded-lg border border-border bg-background p-4 text-[13px] text-muted-foreground">
-					{`curl -X POST https://blaze.crafter.run/v1/databases \\
+			<Panel
+				title="Using a key"
+				description="Send it as a bearer token. The same key works for the REST API and the MCP server."
+			>
+				<div className="p-5">
+					<CodeBlock
+						label="Create a database"
+						code={`curl -X POST https://blaze.crafter.run/v1/databases \\
   -H "Authorization: Bearer blz_live_..." \\
   -H "Content-Type: application/json" \\
   -d '{"engine":"postgres","name":"my-app"}'`}
-				</pre>
-				<p className="mt-4 text-muted-foreground text-xs">
-					The API is not live yet — keys created now will work the moment it ships.
-				</p>
-			</section>
+					/>
+				</div>
+			</Panel>
 		</div>
 	);
 }

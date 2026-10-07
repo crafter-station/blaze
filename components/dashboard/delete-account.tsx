@@ -5,14 +5,26 @@ import { Loader2, TriangleAlert } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { deleteAccountAction } from "@/app/actions";
+import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 /**
  * Typed confirmation rather than a yes/no.
  *
  * This drops every database the account owns, permanently and without a backup to restore
- * from. A click-through confirm is proportionate to deleting one database; making someone
- * retype their own email is proportionate to deleting all of them, and it is the standard
- * pattern precisely because people recognise what it means.
+ * from. Retyping your own email is proportionate to deleting all of them, and it is the
+ * standard pattern precisely because people recognise what it means.
  */
 export function DeleteAccount({ email, databaseCount }: { email: string; databaseCount: number }) {
 	const [pending, start] = useTransition();
@@ -22,13 +34,15 @@ export function DeleteAccount({ email, databaseCount }: { email: string; databas
 
 	const matches = value.trim().toLowerCase() === email.toLowerCase();
 
-	function submit() {
+	function submit(event: React.FormEvent) {
+		event.preventDefault();
+		if (!matches) return;
 		start(async () => {
 			const result = await deleteAccountAction(value);
 			if (result.ok) {
 				toast.success(
 					result.databasesDropped
-						? `Account deleted — ${result.databasesDropped} database(s) dropped`
+						? `Account deleted. ${result.databasesDropped} database(s) dropped.`
 						: "Account deleted",
 				);
 				await signOut({ redirectUrl: "/" });
@@ -38,62 +52,62 @@ export function DeleteAccount({ email, databaseCount }: { email: string; databas
 		});
 	}
 
-	if (!open) {
-		return (
-			<button
-				type="button"
-				onClick={() => setOpen(true)}
-				className="rounded-lg border border-destructive/40 px-4 py-2.5 text-destructive text-sm transition-colors hover:bg-destructive/10"
-			>
-				Delete account
-			</button>
-		);
-	}
-
 	return (
-		<div className="rounded-lg border border-destructive/40 bg-destructive/5 p-5">
-			<div className="mb-3 flex items-center gap-2.5">
-				<TriangleAlert className="size-4 text-destructive" />
-				<p className="font-medium text-sm">This cannot be undone</p>
-			</div>
-			<p className="mb-4 text-muted-foreground text-sm">
-				{databaseCount > 0 ? (
-					<>
-						All <span className="text-foreground">{databaseCount}</span> of your databases will be
-						dropped along with their data. There are no backups to restore from.
-					</>
-				) : (
-					<>Your account and API keys will be permanently removed.</>
-				)}{" "}
-				Type <span className="font-mono text-foreground">{email}</span> to confirm.
-			</p>
-			<div className="flex flex-wrap items-center gap-3">
-				<input
-					value={value}
-					onChange={(e) => setValue(e.target.value)}
-					placeholder={email}
-					className="w-72 rounded-md border border-input bg-background px-2.5 py-1.5 font-mono text-sm outline-none focus:border-destructive"
-				/>
-				<button
-					type="button"
-					onClick={submit}
-					disabled={!matches || pending}
-					className="inline-flex items-center gap-2 rounded-lg bg-destructive px-4 py-2.5 font-medium text-background text-sm disabled:cursor-not-allowed disabled:opacity-40"
-				>
-					{pending && <Loader2 className="size-4 animate-spin" />}
-					{pending ? "Deleting" : "Delete everything"}
-				</button>
-				<button
-					type="button"
-					onClick={() => {
-						setOpen(false);
-						setValue("");
-					}}
-					className="text-muted-foreground text-sm hover:text-foreground"
-				>
-					Cancel
-				</button>
-			</div>
-		</div>
+		<Dialog
+			open={open}
+			onOpenChange={(next) => {
+				if (pending) return;
+				setOpen(next);
+				if (!next) setValue("");
+			}}
+		>
+			<DialogTrigger asChild>
+				<Button variant="destructive-outline">Delete account</Button>
+			</DialogTrigger>
+			<DialogContent className="sm:max-w-md">
+				<DialogHeader>
+					<span className="mb-1 flex size-9 items-center justify-center rounded-lg border border-destructive/25 bg-destructive/10">
+						<TriangleAlert className="size-4 text-destructive" />
+					</span>
+					<DialogTitle>Delete your account</DialogTitle>
+					<DialogDescription>
+						{databaseCount > 0 ? (
+							<>
+								All <span className="text-foreground">{databaseCount}</span> of your databases will
+								be dropped along with their data. There are no backups to restore from.
+							</>
+						) : (
+							<>Your account and API keys will be permanently removed.</>
+						)}
+					</DialogDescription>
+				</DialogHeader>
+				<form onSubmit={submit} className="grid gap-5">
+					<div className="grid gap-2">
+						<Label htmlFor="confirm-email" className="font-normal text-muted-foreground">
+							Type <span className="font-medium font-mono text-foreground">{email}</span> to confirm
+						</Label>
+						<Input
+							id="confirm-email"
+							value={value}
+							onChange={(e) => setValue(e.target.value)}
+							placeholder={email}
+							autoComplete="off"
+							className="font-mono"
+						/>
+					</div>
+					<DialogFooter>
+						<DialogClose asChild>
+							<Button type="button" variant="ghost" disabled={pending}>
+								Cancel
+							</Button>
+						</DialogClose>
+						<Button type="submit" variant="destructive" disabled={!matches || pending}>
+							{pending && <Loader2 className="animate-spin" data-icon="inline-start" />}
+							{pending ? "Deleting" : "Delete everything"}
+						</Button>
+					</DialogFooter>
+				</form>
+			</DialogContent>
+		</Dialog>
 	);
 }

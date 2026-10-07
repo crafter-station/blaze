@@ -1,8 +1,18 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { ChevronRight, Database } from "lucide-react";
 import Link from "next/link";
+import { EngineTile } from "@/components/brand/engine-icon";
+import { EmptyState, PageHeader, Panel } from "@/components/console/page";
 import { CreateDatabase } from "@/components/create-database";
 import { StatusPill } from "@/components/dashboard/status-pill";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/control/db";
 import { databases } from "@/lib/control/schema";
@@ -21,87 +31,86 @@ export default async function DatabasesPage() {
 		with: { project: true },
 		orderBy: [desc(databases.createdAt)],
 	});
+	const atQuota = rows.length >= LIMITS.DATABASES_PER_USER;
 
 	return (
 		<div className="space-y-8">
-			<div className="flex flex-wrap items-start justify-between gap-4">
-				<div>
-					<h1 className="font-semibold text-[34px] leading-tight tracking-tight">Databases</h1>
-					<p className="mt-2 text-muted-foreground text-sm">
+			<PageHeader
+				title="Databases"
+				description={
+					<span className="tabular-nums">
 						{rows.length} of {LIMITS.DATABASES_PER_USER} used
-					</p>
-				</div>
-				<CreateDatabase atQuota={rows.length >= LIMITS.DATABASES_PER_USER} />
-			</div>
+					</span>
+				}
+				actions={<CreateDatabase atQuota={atQuota} />}
+			/>
 
-			<section className="overflow-hidden rounded-xl border border-border bg-card">
+			<Panel>
 				{rows.length === 0 ? (
-					<div className="px-7 py-20 text-center">
-						<Database className="mx-auto mb-4 size-8 text-muted-foreground/50" />
-						<p className="font-medium">No databases yet</p>
-						<p className="mx-auto mt-1.5 max-w-md text-muted-foreground text-sm">
-							Create one and you get a Postgres connection string in about 200&nbsp;milliseconds.
-						</p>
-					</div>
+					<EmptyState
+						icon={Database}
+						title="No databases yet"
+						description="Create one and you get a connection string in about 200 milliseconds."
+						action={<CreateDatabase atQuota={atQuota} />}
+					/>
 				) : (
-					<div className="overflow-x-auto">
-						<table className="w-full min-w-[760px] text-sm">
-							<thead>
-								<tr className="border-border border-b text-left text-muted-foreground text-xs">
-									<th className="px-7 py-3.5 font-medium">Name</th>
-									<th className="px-4 py-3.5 font-medium">Engine</th>
-									<th className="px-4 py-3.5 font-medium">Status</th>
-									<th className="px-4 py-3.5 font-medium">Size</th>
-									<th className="px-4 py-3.5 font-medium">Created</th>
-									<th className="px-4 py-3.5 font-medium">Expires</th>
-									<th className="px-7 py-3.5" />
-								</tr>
-							</thead>
-							<tbody className="divide-y divide-border">
-								{rows.map((row) => (
-									<tr key={row.id} className="group transition-colors hover:bg-accent/40">
-										<td className="px-7 py-4">
-											<Link href={`/databases/${row.id}`} className="flex items-center gap-3">
-												<span className="flex size-8 items-center justify-center rounded-lg border border-border bg-background">
-													<Database className="size-3.5 text-muted-foreground" />
+					<Table className="min-w-[760px]">
+						<TableHeader>
+							<TableRow className="hover:bg-transparent">
+								<TableHead>Name</TableHead>
+								<TableHead>Engine</TableHead>
+								<TableHead>Status</TableHead>
+								<TableHead className="text-right">Size</TableHead>
+								<TableHead>Created</TableHead>
+								<TableHead>Expires</TableHead>
+								<TableHead>
+									<span className="sr-only">Open</span>
+								</TableHead>
+							</TableRow>
+						</TableHeader>
+						<TableBody>
+							{rows.map((row) => (
+								<TableRow key={row.id} className="group relative">
+									<TableCell>
+										<Link
+											href={`/databases/${row.id}`}
+											className="flex items-center gap-3 after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:rounded-md focus-visible:after:ring-2 focus-visible:after:ring-ring"
+										>
+											<EngineTile engine={row.engine} size="sm" />
+											<span className="min-w-0">
+												<span className="block truncate font-medium">{row.name}</span>
+												<span className="block truncate text-muted-foreground text-xs">
+													{row.project.name}
 												</span>
-												<span>
-													<span className="block font-medium">{row.name}</span>
-													<span className="block text-muted-foreground text-xs">
-														{row.project.name}
-													</span>
-												</span>
-											</Link>
-										</td>
-										<td className="px-4 py-4 text-muted-foreground">
-											{ENGINE_CONFIG[row.engine].label}
-										</td>
-										<td className="px-4 py-4">
-											<StatusPill status={row.status} />
-										</td>
-										<td className="px-4 py-4 text-muted-foreground tabular-nums">
-											{formatBytes(row.sizeBytes)}
-										</td>
-										<td className="px-4 py-4 text-muted-foreground">{formatDate(row.createdAt)}</td>
-										<td className="px-4 py-4 text-muted-foreground">
-											{formatExpiry(row.expiresAt) ?? "—"}
-										</td>
-										<td className="px-7 py-4 text-right">
-											<Link
-												href={`/databases/${row.id}`}
-												className="inline-flex items-center gap-1 text-muted-foreground text-xs transition-colors group-hover:text-foreground"
-											>
-												Open
-												<ChevronRight className="size-3.5" />
-											</Link>
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
+											</span>
+										</Link>
+									</TableCell>
+									<TableCell className="text-muted-foreground">
+										{ENGINE_CONFIG[row.engine].label}
+									</TableCell>
+									<TableCell>
+										<StatusPill status={row.status} />
+									</TableCell>
+									<TableCell className="text-right font-mono text-[0.8125rem] text-muted-foreground tabular-nums">
+										{formatBytes(row.sizeBytes)}
+									</TableCell>
+									<TableCell className="text-muted-foreground">
+										{formatDate(row.createdAt)}
+									</TableCell>
+									<TableCell className="text-muted-foreground">
+										{formatExpiry(row.expiresAt) ?? (
+											<span className="text-muted-foreground/50">Never</span>
+										)}
+									</TableCell>
+									<TableCell className="w-10 text-right">
+										<ChevronRight className="ml-auto size-4 text-muted-foreground/60 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-foreground" />
+									</TableCell>
+								</TableRow>
+							))}
+						</TableBody>
+					</Table>
 				)}
-			</section>
+			</Panel>
 		</div>
 	);
 }

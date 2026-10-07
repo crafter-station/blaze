@@ -47,6 +47,14 @@ for (const mode of modes) {
 			colorScheme: mode,
 		});
 		const page = await context.newPage();
+		// The dev-mode Next indicator is not part of the product; keep it out of captures.
+		await context.addInitScript(() => {
+			document.addEventListener("DOMContentLoaded", () => {
+				const style = document.createElement("style");
+				style.textContent = "nextjs-portal{display:none!important}";
+				document.head.append(style);
+			});
+		});
 		if (auth) {
 			await page.goto(`${base}/sign-in`);
 			await clerk.signIn({ page, emailAddress: email });

@@ -1,5 +1,9 @@
 import { and, count, eq, isNull } from "drizzle-orm";
+import { Gauge, Layers, UserRound } from "lucide-react";
+import { EngineTile } from "@/components/brand/engine-icon";
+import { KeyValueList, PageHeader, Panel } from "@/components/console/page";
 import { DeleteAccount } from "@/components/dashboard/delete-account";
+import { Badge } from "@/components/ui/badge";
 import { listApiKeys } from "@/lib/api-keys";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/control/db";
@@ -24,105 +28,93 @@ export default async function SettingsPage() {
 	]);
 
 	return (
-		<div className="space-y-8">
-			<div>
-				<h1 className="font-semibold text-[34px] leading-tight tracking-tight">Settings</h1>
-				<p className="mt-2 text-muted-foreground text-sm">
-					Account, limits and everything blaze will let you break.
-				</p>
-			</div>
+		<div className="max-w-3xl space-y-8">
+			<PageHeader
+				title="Settings"
+				description="Account, limits, and the one thing here that cannot be undone."
+			/>
 
-			<section className="rounded-xl border border-border bg-card">
-				<div className="border-border border-b px-7 py-5">
-					<h2 className="font-medium">Account</h2>
-				</div>
-				<dl className="divide-y divide-border">
-					<Row label="Email" value={user.email} mono />
-					<Row label="Plan" value={user.plan === "free" ? "Free (alpha)" : user.plan} />
-					<Row label="Member since" value={formatDate(user.createdAt)} />
-					<Row label="Databases" value={`${databaseCount} of ${LIMITS.DATABASES_PER_USER}`} />
-					<Row label="API keys" value={`${keys.length} of ${LIMITS.API_KEYS_PER_USER}`} />
-				</dl>
-				<div className="border-border border-t px-7 py-5">
-					<p className="text-muted-foreground text-xs">
-						Email and password are managed by Clerk — use the account menu in the top-right to
-						change them.
-					</p>
-				</div>
-			</section>
+			<Panel
+				title="Account"
+				icon={UserRound}
+				footer="Email and password are managed by Clerk. Use the account menu in the top right to change them."
+			>
+				<KeyValueList
+					items={[
+						{ label: "Email", value: user.email, mono: true },
+						{ label: "Plan", value: user.plan === "free" ? "Free (alpha)" : user.plan },
+						{ label: "Member since", value: formatDate(user.createdAt) },
+						{
+							label: "Databases",
+							value: `${databaseCount} of ${LIMITS.DATABASES_PER_USER}`,
+						},
+						{ label: "API keys", value: `${keys.length} of ${LIMITS.API_KEYS_PER_USER}` },
+					]}
+				/>
+			</Panel>
 
-			<section className="rounded-xl border border-border bg-card">
-				<div className="border-border border-b px-7 py-5">
-					<h2 className="font-medium">Limits</h2>
-				</div>
-				<dl className="divide-y divide-border">
-					<Row label="Databases per account" value={String(LIMITS.DATABASES_PER_USER)} />
-					<Row label="Storage per database" value={formatBytes(LIMITS.STORAGE_BYTES)} />
-					<Row label="Concurrent connections" value={`${LIMITS.CONNECTION_LIMIT} per database`} />
-					<Row label="Statement timeout" value={`${LIMITS.STATEMENT_TIMEOUT_MS / 1000}s`} />
-					<Row
-						label="Idle in transaction"
-						value={`${LIMITS.IDLE_TRANSACTION_TIMEOUT_MS / 1000}s`}
-					/>
-					<Row label="Longest TTL" value={`${TTL.MAX_MS / 86_400_000} days`} />
-				</dl>
-				<div className="border-border border-t px-7 py-5">
-					<p className="text-muted-foreground text-xs">
-						blaze is free and has no billing, so these limits are what keeps it running rather than
-						a tier to upgrade out of. If one is blocking something real, open an issue.
-					</p>
-				</div>
-			</section>
+			<Panel
+				title="Limits"
+				icon={Gauge}
+				footer="blaze is free and has no billing, so these limits are what keeps it running rather than a tier to upgrade out of. If one is blocking something real, open an issue."
+			>
+				<KeyValueList
+					items={[
+						{ label: "Databases per account", value: String(LIMITS.DATABASES_PER_USER) },
+						{ label: "Storage per database", value: formatBytes(LIMITS.STORAGE_BYTES) },
+						{
+							label: "Concurrent connections",
+							value: `${LIMITS.CONNECTION_LIMIT} per database`,
+						},
+						{ label: "Statement timeout", value: `${LIMITS.STATEMENT_TIMEOUT_MS / 1000}s` },
+						{
+							label: "Idle in transaction",
+							value: `${LIMITS.IDLE_TRANSACTION_TIMEOUT_MS / 1000}s`,
+						},
+						{ label: "Longest TTL", value: `${TTL.MAX_MS / 86_400_000} days` },
+					]}
+				/>
+			</Panel>
 
-			<section className="rounded-xl border border-border bg-card">
-				<div className="border-border border-b px-7 py-5">
-					<h2 className="font-medium">Engines</h2>
-				</div>
-				<ul className="divide-y divide-border">
+			<Panel title="Engines" icon={Layers}>
+				<ul className="grid divide-y divide-border sm:grid-cols-2 sm:divide-y-0 [&>li]:border-border sm:[&>li:nth-child(n+3)]:border-t sm:[&>li:nth-child(odd)]:border-r">
 					{ENGINES.map((engine) => {
 						const config = ENGINE_CONFIG[engine];
 						const live = isProvisionable(engine);
 						return (
-							<li key={engine} className="flex items-center justify-between gap-4 px-7 py-4">
-								<span className="flex items-center gap-3">
-									<span className="text-sm">{config.label}</span>
-									<span className="text-muted-foreground text-xs">
-										{config.tenancy === "shared" ? "shared instance" : "dedicated container"}
+							<li key={engine} className="flex items-center justify-between gap-4 px-5 py-3.5">
+								<span className="flex min-w-0 items-center gap-3">
+									<EngineTile engine={engine} size="sm" />
+									<span className="min-w-0">
+										<span className="block font-medium text-sm">{config.label}</span>
+										<span className="block text-muted-foreground text-xs">
+											{config.tenancy === "shared" ? "Shared instance" : "Dedicated container"}
+										</span>
 									</span>
 								</span>
 								{live ? (
-									<span className="flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-1 text-[11px] text-success">
-										<span className="size-1.5 rounded-full bg-success" />
-										Available
-									</span>
+									<Badge variant="success">Available</Badge>
 								) : (
-									<span className="rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground">
-										Not yet
-									</span>
+									<Badge variant="outline">Not yet</Badge>
 								)}
 							</li>
 						);
 					})}
 				</ul>
-			</section>
+			</Panel>
 
-			<section className="rounded-xl border border-destructive/30 bg-card">
-				<div className="border-destructive/30 border-b px-7 py-5">
-					<h2 className="font-medium text-destructive">Danger zone</h2>
-				</div>
-				<div className="px-7 py-6">
+			<Panel title="Danger zone" tone="danger">
+				<div className="flex flex-wrap items-center justify-between gap-4 p-5">
+					<div className="max-w-md">
+						<p className="font-medium text-sm">Delete account</p>
+						<p className="mt-1 text-muted-foreground text-sm">
+							Drops every database you own and removes your API keys. There are no backups to
+							restore from.
+						</p>
+					</div>
 					<DeleteAccount email={user.email} databaseCount={databaseCount} />
 				</div>
-			</section>
-		</div>
-	);
-}
-
-function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-	return (
-		<div className="flex items-center justify-between gap-4 px-7 py-4">
-			<dt className="text-muted-foreground text-sm">{label}</dt>
-			<dd className={mono ? "truncate font-mono text-[13px]" : "text-sm"}>{value}</dd>
+			</Panel>
 		</div>
 	);
 }

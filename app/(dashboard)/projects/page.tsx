@@ -1,13 +1,18 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
-import { Braces, Database, Link2, SquareTerminal } from "lucide-react";
+import { ArrowUpRight, Bot, Braces, Database, SquareTerminal } from "lucide-react";
+import Link from "next/link";
+import { EngineTile } from "@/components/brand/engine-icon";
 import { ConnectionString } from "@/components/connection-string";
+import { EmptyState, Meter, PageHeader, Panel, Stat } from "@/components/console/page";
 import { CreateDatabase, DeleteDatabase } from "@/components/create-database";
+import { StatusPill } from "@/components/dashboard/status-pill";
 import { requireUser } from "@/lib/auth";
 import { buildConnectionString } from "@/lib/connection";
 import { db } from "@/lib/control/db";
 import { databases } from "@/lib/control/schema";
-import { ENGINE_CONFIG } from "@/lib/engines/types";
-import { formatBytes, formatExpiry } from "@/lib/format";
+import { PROVISIONABLE } from "@/lib/engines/available";
+import { ENGINE_CONFIG, ENGINES } from "@/lib/engines/types";
+import { formatBytes, formatExpiry, percentOf } from "@/lib/format";
 import { LIMITS } from "@/lib/limits";
 
 export const metadata = { title: "Overview" };
@@ -27,57 +32,74 @@ export default async function OverviewPage() {
 
 	return (
 		<div className="space-y-8">
-			<div className="flex flex-wrap items-start justify-between gap-4">
-				<div>
-					<h1 className="font-semibold text-[34px] leading-tight tracking-tight">Overview</h1>
-					<p className="mt-2 text-muted-foreground text-sm">
-						Free while in alpha — no card, no expiry on the plan.
-					</p>
-				</div>
-				<CreateDatabase atQuota={atQuota} />
-			</div>
+			<PageHeader
+				title="Overview"
+				description="Free while in alpha. No card, and no expiry on the plan."
+				actions={<CreateDatabase atQuota={atQuota} />}
+			/>
 
-			{rows.length > 0 && <GetConnected />}
-
-			<section className="rounded-xl border border-border bg-card p-7">
-				<div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+			<Panel
+				footer={
+					<>
+						Storage is sampled every 5 minutes. Postgres has no per-database disk quota, so the
+						sampler is what enforces the limit, and a database can briefly exceed it between
+						samples.
+					</>
+				}
+			>
+				<div className="grid grid-cols-2 gap-px bg-border lg:grid-cols-4 [&>*]:bg-card [&>*]:px-4 [&>*]:py-4 sm:[&>*]:px-5 sm:[&>*]:py-5">
 					<Stat
 						label="Databases"
 						value={String(rows.length)}
-						limit={String(LIMITS.DATABASES_PER_USER)}
-					/>
+						limit={`/ ${LIMITS.DATABASES_PER_USER}`}
+					>
+						<Meter className="mt-3" percent={percentOf(rows.length, LIMITS.DATABASES_PER_USER)} />
+					</Stat>
 					<Stat
-						label="Storage"
+						label="Storage used"
 						value={formatBytes(totalBytes)}
-						limit={`${formatBytes(LIMITS.STORAGE_BYTES)} each`}
+						limit={`/ ${formatBytes(LIMITS.STORAGE_BYTES)} each`}
 					/>
 					<Stat label="Connections" value={String(LIMITS.CONNECTION_LIMIT)} limit="per database" />
-					<Stat label="Engines" value="1" limit="of 6 available" />
+					<Stat
+						label="Engines"
+						value={String(PROVISIONABLE.length)}
+						limit={`of ${ENGINES.length} available`}
+					/>
 				</div>
-				<hr className="my-6 border-border" />
-				<p className="text-muted-foreground text-xs">
-					Storage is sampled every 5 minutes. Postgres has no per-database disk quota, so the
-					sampler is what enforces the limit — a database can briefly exceed it between samples.
-				</p>
-			</section>
+			</Panel>
 
-			<section className="rounded-xl border border-border bg-card">
-				<div className="flex items-center justify-between border-border border-b px-7 py-5">
-					<div className="flex items-center gap-3">
-						<Database className="size-[18px] text-muted-foreground" />
-						<h2 className="font-medium">
-							{rows.length} {rows.length === 1 ? "database" : "databases"}
-						</h2>
-					</div>
-				</div>
+			{rows.length > 0 && <GetConnected />}
 
+			<Panel
+				title={
+					<>
+						Databases
+						<span className="ml-2 font-normal text-muted-foreground tabular-nums">
+							{rows.length}
+						</span>
+					</>
+				}
+				icon={Database}
+				action={
+					rows.length > 0 ? (
+						<Link
+							href="/databases"
+							className="inline-flex items-center gap-1 text-muted-foreground text-xs transition-colors hover:text-foreground"
+						>
+							View all
+							<ArrowUpRight className="size-3.5" />
+						</Link>
+					) : undefined
+				}
+			>
 				{rows.length === 0 ? (
-					<div className="px-7 py-16 text-center">
-						<p className="font-medium">No databases yet</p>
-						<p className="mx-auto mt-1.5 max-w-md text-muted-foreground text-sm">
-							Create one and you get a Postgres connection string in about 200&nbsp;milliseconds.
-						</p>
-					</div>
+					<EmptyState
+						icon={Database}
+						title="No databases yet"
+						description="Create one and you get a connection string in about 200 milliseconds."
+						action={<CreateDatabase atQuota={atQuota} />}
+					/>
 				) : (
 					<ul className="divide-y divide-border">
 						{rows.map((row) => {
@@ -91,36 +113,38 @@ export default async function OverviewPage() {
 								passwordEnc: row.passwordEnc,
 							};
 							return (
-								<li key={row.id} className="px-7 py-6">
-									<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-										<div className="flex items-center gap-3">
-											<span className="flex size-9 items-center justify-center rounded-lg border border-border bg-background">
-												<Database className="size-4 text-muted-foreground" />
-											</span>
-											<div>
-												<p className="font-medium">{row.name}</p>
-												<p className="text-muted-foreground text-xs">
-													{ENGINE_CONFIG[row.engine].label} · owner {row.roleName}
+								<li key={row.id} className="px-5 py-5">
+									<div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
+										<div className="flex min-w-0 items-center gap-3">
+											<EngineTile engine={row.engine} />
+											<div className="min-w-0">
+												<div className="flex flex-wrap items-center gap-2">
+													<Link
+														href={`/databases/${row.id}`}
+														className="truncate font-medium hover:underline hover:underline-offset-4"
+													>
+														{row.name}
+													</Link>
+													<StatusPill status={row.status} />
+													{expiry && (
+														<span className="text-muted-foreground text-xs">
+															{expiry === "expired" ? "TTL expired" : `Deletes ${expiry}`}
+														</span>
+													)}
+												</div>
+												<p className="mt-0.5 truncate text-muted-foreground text-xs">
+													{ENGINE_CONFIG[row.engine].label} · owner{" "}
+													<span className="font-mono">{row.roleName}</span>
 												</p>
 											</div>
-											{row.status === "active" ? (
-												<span className="flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-1 text-[11px] text-success">
-													<span className="size-1.5 rounded-full bg-success" />
-													Active
-												</span>
-											) : (
-												<span className="rounded-full border border-warning/30 bg-warning/10 px-2.5 py-1 text-[11px] text-warning">
-													{row.status}
-												</span>
-											)}
-											{expiry && <span className="text-muted-foreground text-xs">{expiry}</span>}
 										</div>
-										<div className="flex items-center gap-4 text-muted-foreground text-xs">
-											<span>{formatBytes(row.sizeBytes)}</span>
+										<div className="flex items-center gap-3 text-muted-foreground text-xs">
+											<span className="font-mono tabular-nums">{formatBytes(row.sizeBytes)}</span>
 											<DeleteDatabase id={row.id} name={row.name} />
 										</div>
 									</div>
 									<ConnectionString
+										label=""
 										value={buildConnectionString(target, true)}
 										masked={buildConnectionString(target, false)}
 									/>
@@ -129,70 +153,69 @@ export default async function OverviewPage() {
 						})}
 					</ul>
 				)}
-			</section>
+			</Panel>
 		</div>
 	);
 }
 
-function Stat({ label, value, limit }: { label: string; value: string; limit: string }) {
-	return (
-		<div>
-			<p className="text-muted-foreground text-sm">{label}</p>
-			<p className="mt-2 font-semibold text-2xl tracking-tight">
-				{value}
-				<span className="ml-1.5 font-normal text-base text-muted-foreground">/ {limit}</span>
-			</p>
-		</div>
-	);
-}
-
-/** Mirrors Neon's "Get connected" card — the onboarding surface, not decoration. */
+/** Mirrors Neon's "Get connected" card: the onboarding surface, not decoration. */
 function GetConnected() {
 	const tiles = [
 		{
-			icon: Link2,
-			title: "Connection string",
-			body: "Copy the string below and drop it into your app config.",
-			ready: true,
-		},
-		{
 			icon: SquareTerminal,
-			title: "psql",
-			body: "Connect from your terminal with the same credentials.",
-			ready: true,
+			title: "Connection string",
+			body: "Copy a string below into your app config, or open it with psql.",
+			href: undefined,
 		},
 		{
 			icon: Braces,
 			title: "REST API",
-			body: "Provision databases with an API key instead of this dashboard.",
-			ready: false,
+			body: "Provision and query from a script or CI with an API key.",
+			href: "/docs#databases",
 		},
 		{
-			icon: Database,
+			icon: Bot,
 			title: "MCP server",
-			body: "Let an agent create and query databases in-conversation.",
-			ready: false,
+			body: "Let an agent create and query databases in conversation.",
+			href: "/docs#mcp",
 		},
 	];
 
 	return (
-		<section className="rounded-xl border border-border bg-card p-7">
-			<h2 className="mb-5 font-medium">Get connected</h2>
-			<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-				{tiles.map((tile) => (
-					<div key={tile.title} className="rounded-lg border border-border bg-background p-5">
-						<div className="mb-3 flex items-center gap-2.5">
-							<tile.icon className="size-[18px] text-primary" />
-							<p className="font-medium text-sm">{tile.title}</p>
-							{!tile.ready && (
-								<span className="ml-auto rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-									soon
-								</span>
-							)}
+		<section aria-labelledby="get-connected" className="space-y-3">
+			<h2 id="get-connected" className="font-medium text-[0.9375rem] tracking-[-0.01em]">
+				Get connected
+			</h2>
+			<div className="grid gap-3 md:grid-cols-3">
+				{tiles.map((tile) => {
+					const content = (
+						<>
+							<div className="mb-2 flex items-center gap-2.5">
+								<tile.icon className="size-4 text-muted-foreground" strokeWidth={1.75} />
+								<p className="font-medium text-sm">{tile.title}</p>
+								{tile.href && (
+									<ArrowUpRight className="ml-auto size-3.5 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-foreground" />
+								)}
+							</div>
+							<p className="text-muted-foreground text-xs leading-relaxed">{tile.body}</p>
+						</>
+					);
+					const className =
+						"group block rounded-xl border border-border bg-card p-4 shadow-xs transition-colors";
+					return tile.href ? (
+						<Link
+							key={tile.title}
+							href={tile.href}
+							className={`${className} hover:border-border-strong hover:bg-accent/40`}
+						>
+							{content}
+						</Link>
+					) : (
+						<div key={tile.title} className={className}>
+							{content}
 						</div>
-						<p className="text-muted-foreground text-xs leading-relaxed">{tile.body}</p>
-					</div>
-				))}
+					);
+				})}
 			</div>
 		</section>
 	);

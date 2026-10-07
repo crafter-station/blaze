@@ -8,8 +8,10 @@
         "@clerk/nextjs": "^7.7.8",
         "@clerk/themes": "^2.4.57",
         "@codemirror/lang-sql": "^6.10.0",
+        "@codemirror/language": "^6.12.4",
         "@codemirror/state": "^6.7.1",
         "@codemirror/view": "^6.43.9",
+        "@lezer/highlight": "1.2.3",
         "@libsql/client": "^0.17.4",
         "@uiw/react-codemirror": "^4.25.11",
         "class-variance-authority": "^0.7.1",
@@ -31,6 +33,7 @@
         "recharts": "^3.10.1",
         "server-only": "^0.0.1",
         "shadcn": "^4.21.3",
+        "simple-icons": "^16.34.0",
         "sonner": "^2.0.8",
         "tailwind-merge": "^3.6.0",
         "zod": "^4.4.3",
@@ -1178,6 +1181,8 @@
     "side-channel-weakmap": ["side-channel-weakmap@1.0.2", "", { "dependencies": { "call-bound": "^1.0.2", "es-errors": "^1.3.0", "get-intrinsic": "^1.2.5", "object-inspect": "^1.13.3", "side-channel-map": "^1.0.1" } }, "sha512-WPS/HvHQTYnHisLo9McqBHOJk2FkHO/tlpvldyrnem4aeQp4hai3gythswg6p01oSoTl58rcpiFAjF2br2Ak2A=="],
 
     "signal-exit": ["signal-exit@4.1.0", "", {}, "sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw=="],
+
+    "simple-icons": ["simple-icons@16.34.0", "", {}, "sha512-UTxKn0PVspk84B2hHF3Dqiqht1yDjJmDc/t4cO7PyCQxCMk6OjEu95pnpGjhLaGeQ4qBrGASbefTIe/+czrX7g=="],
 
     "sisteransi": ["sisteransi@1.0.5", "", {}, "sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg=="],
 

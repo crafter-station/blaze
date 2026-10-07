@@ -1,7 +1,8 @@
-import { ArrowLeft, CalendarDays, Database, KeyRound, Server, UserRound } from "lucide-react";
-import Link from "next/link";
+import { CalendarDays, Clock, HardDrive, Lock, ShieldCheck, UserRound } from "lucide-react";
 import { notFound } from "next/navigation";
+import { EngineIcon } from "@/components/brand/engine-icon";
 import { ConnectionString } from "@/components/connection-string";
+import { KeyValueList, Meter, PageHeader, Panel } from "@/components/console/page";
 import { DeleteDatabase } from "@/components/create-database";
 import { ResetPassword } from "@/components/dashboard/reset-password";
 import { StatusPill } from "@/components/dashboard/status-pill";
@@ -37,153 +38,132 @@ export default async function DatabaseDetailPage({ params }: { params: Promise<{
 
 	return (
 		<div className="space-y-8">
-			<div>
-				<Link
-					href="/databases"
-					className="inline-flex items-center gap-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground"
-				>
-					<ArrowLeft className="size-3.5" />
-					Databases
-				</Link>
-			</div>
-
-			<div className="flex flex-wrap items-start justify-between gap-4">
-				<div>
-					<div className="flex items-center gap-3">
-						<h1 className="font-semibold text-[34px] leading-tight tracking-tight">
-							{record.name}
-						</h1>
-						<StatusPill status={record.status} />
-					</div>
-					<p className="mt-3 flex flex-wrap items-center gap-4 text-muted-foreground text-sm">
-						<span className="flex items-center gap-2">
-							<CalendarDays className="size-4" />
-							Created {formatDate(record.createdAt)}
-						</span>
-						<span className="flex items-center gap-2">
-							<Database className="size-4" />
+			<PageHeader
+				back={{ href: "/databases", label: "Databases" }}
+				title={record.name}
+				meta={<StatusPill status={record.status} />}
+				description={
+					<span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+						<span className="inline-flex items-center gap-1.5">
+							<EngineIcon engine={record.engine} className="size-3.5" />
 							{engine.label}
 						</span>
-						{expiry && <span className="text-warning">Auto-deletes {expiry}</span>}
-					</p>
-				</div>
-				<DeleteDatabase id={record.id} name={record.name} redirectTo="/databases" />
-			</div>
+						<span className="inline-flex items-center gap-1.5">
+							<CalendarDays className="size-3.5" />
+							Created {formatDate(record.createdAt)}
+						</span>
+						{expiry && (
+							<span className="inline-flex items-center gap-1.5 text-warning">
+								<Clock className="size-3.5" />
+								{expiry === "expired" ? "TTL expired" : `Auto-deletes ${expiry}`}
+							</span>
+						)}
+					</span>
+				}
+				actions={
+					<DeleteDatabase
+						id={record.id}
+						name={record.name}
+						redirectTo="/databases"
+						variant="button"
+					/>
+				}
+			/>
 
-			<section className="rounded-xl border border-border bg-card p-7">
-				<h2 className="mb-5 font-medium">Connection details</h2>
-				<ConnectionString
-					value={buildConnectionString(target, true)}
-					masked={buildConnectionString(target, false)}
-				/>
-				<dl className="mt-6 grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
-					<Field label="Host" value={connectionHost(record.engine, record.slug, record.id)} mono />
-					<Field label="Port" value={String(connectionPort(record.engine))} mono />
-					<Field label="Database" value={record.dbName} mono />
-					<Field label="Role" value={record.roleName} mono />
-				</dl>
-				<p className="mt-6 border-border border-t pt-5 text-muted-foreground text-xs">
-					TLS is required — the server refuses unencrypted connections. The certificate is currently
-					self-signed, so clients that verify the chain need{" "}
-					<span className="font-mono">sslmode=no-verify</span> rather than{" "}
-					<span className="font-mono">require</span> (node-postgres is the common case). Passwords
-					are stored encrypted and can be rotated at any time; existing sessions keep working until
-					they reconnect.
-				</p>
-			</section>
+			<Panel
+				title="Connection details"
+				icon={Lock}
+				footer={
+					<>
+						TLS is required: the server refuses unencrypted connections. The certificate is
+						currently self-signed, so clients that verify the chain need{" "}
+						<code className="text-foreground">sslmode=no-verify</code> rather than{" "}
+						<code className="text-foreground">require</code> (node-postgres is the common case).
+						Passwords are stored encrypted and can be rotated at any time; existing sessions keep
+						working until they reconnect.
+					</>
+				}
+			>
+				<div className="space-y-5 p-5">
+					<ConnectionString
+						value={buildConnectionString(target, true)}
+						masked={buildConnectionString(target, false)}
+					/>
+					<dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+						<Field label="Host" value={connectionHost(record.engine, record.slug, record.id)} />
+						<Field label="Port" value={String(connectionPort(record.engine))} />
+						<Field label="Database" value={record.dbName} />
+						<Field label="Role" value={record.roleName} />
+					</dl>
+				</div>
+			</Panel>
 
 			<div className="grid gap-6 lg:grid-cols-2">
-				<section className="rounded-xl border border-border bg-card">
-					<div className="flex items-center gap-3 border-border border-b px-7 py-5">
-						<Server className="size-[18px] text-muted-foreground" />
-						<h2 className="font-medium">Storage</h2>
-					</div>
-					<div className="px-7 py-6">
-						<p className="font-semibold text-2xl tracking-tight">
+				<Panel
+					title="Storage"
+					icon={HardDrive}
+					footer="Sampled every 5 minutes. Postgres has no per-database disk quota, so this sample is the enforcement mechanism, not just a reading."
+				>
+					<div className="p-5">
+						<p className="font-semibold text-[1.375rem] tabular-nums tracking-[-0.02em]">
 							{formatBytes(record.sizeBytes)}
-							<span className="ml-1.5 font-normal text-base text-muted-foreground">
+							<span className="ml-1.5 font-normal text-muted-foreground text-sm tracking-normal">
 								/ {formatBytes(LIMITS.STORAGE_BYTES)}
 							</span>
 						</p>
-						<div className="mt-4 h-1.5 overflow-hidden rounded-full bg-muted">
-							<div
-								className={
-									usedPercent > 90
-										? "h-full rounded-full bg-destructive"
-										: usedPercent > 70
-											? "h-full rounded-full bg-warning"
-											: "h-full rounded-full bg-primary"
-								}
-								style={{ width: `${Math.max(usedPercent, 1)}%` }}
-							/>
-						</div>
-						<p className="mt-4 text-muted-foreground text-xs">
-							Sampled every 5 minutes. Postgres has no per-database disk quota, so this sample is
-							the enforcement mechanism, not just a reading.
-						</p>
+						<Meter className="mt-4" percent={usedPercent} />
+						<p className="mt-2 text-muted-foreground text-xs tabular-nums">{usedPercent}% used</p>
 					</div>
-				</section>
+				</Panel>
 
-				<section className="rounded-xl border border-border bg-card">
-					<div className="flex items-center gap-3 border-border border-b px-7 py-5">
-						<UserRound className="size-[18px] text-muted-foreground" />
-						<h2 className="font-medium">Role</h2>
-					</div>
-					<div className="px-7 py-6">
-						<div className="flex flex-wrap items-center justify-between gap-4">
-							<div className="min-w-0">
-								<p className="truncate font-mono text-sm">{record.roleName}</p>
-								<p className="mt-1.5 flex items-center gap-1.5 text-muted-foreground text-xs">
-									<span className="size-1.5 rounded-full bg-success" />
-									Has password
-								</p>
-							</div>
-							<ResetPassword id={record.id} />
+				<Panel
+					title="Role"
+					icon={UserRound}
+					footer={
+						<>
+							Owns this database and nothing else on the instance. It cannot reach another
+							tenant&apos;s database, or the maintenance database. Verified by{" "}
+							<code className="text-foreground">scripts/smoke-provision.ts</code>.
+						</>
+					}
+				>
+					<div className="flex flex-wrap items-center justify-between gap-4 p-5">
+						<div className="min-w-0">
+							<p className="truncate font-mono text-sm">{record.roleName}</p>
+							<p className="mt-1.5 flex items-center gap-1.5 text-muted-foreground text-xs">
+								<ShieldCheck className="size-3.5 text-success" />
+								Password set, stored encrypted
+							</p>
 						</div>
-						<p className="mt-5 text-muted-foreground text-xs">
-							Owns this database and nothing else on the instance. It cannot reach another tenant's
-							database, or the maintenance database — verified by
-							<span className="font-mono"> scripts/smoke-provision.ts</span>.
-						</p>
+						<ResetPassword id={record.id} />
 					</div>
-				</section>
+				</Panel>
 			</div>
 
-			<section className="rounded-xl border border-border bg-card">
-				<div className="flex items-center gap-3 border-border border-b px-7 py-5">
-					<KeyRound className="size-[18px] text-muted-foreground" />
-					<h2 className="font-medium">Limits</h2>
-				</div>
-				<dl className="divide-y divide-border">
-					<Row label="Connections" value={`${LIMITS.CONNECTION_LIMIT} concurrent`} />
-					<Row label="Statement timeout" value={`${LIMITS.STATEMENT_TIMEOUT_MS / 1000}s`} />
-					<Row
-						label="Idle in transaction"
-						value={`${LIMITS.IDLE_TRANSACTION_TIMEOUT_MS / 1000}s`}
-					/>
-					<Row label="Instance" value={record.instance.internalHost} mono />
-				</dl>
-			</section>
+			<Panel title="Limits" description="Applied to this database's role on the server.">
+				<KeyValueList
+					items={[
+						{ label: "Connections", value: `${LIMITS.CONNECTION_LIMIT} concurrent` },
+						{ label: "Statement timeout", value: `${LIMITS.STATEMENT_TIMEOUT_MS / 1000}s` },
+						{
+							label: "Idle in transaction",
+							value: `${LIMITS.IDLE_TRANSACTION_TIMEOUT_MS / 1000}s`,
+						},
+						{ label: "Instance", value: record.instance.internalHost, mono: true },
+					]}
+				/>
+			</Panel>
 		</div>
 	);
 }
 
-function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function Field({ label, value }: { label: string; value: string }) {
 	return (
 		<div className="min-w-0">
 			<dt className="text-muted-foreground text-xs">{label}</dt>
-			<dd className={mono ? "mt-1 truncate font-mono text-[13px]" : "mt-1 truncate text-sm"}>
+			<dd className="mt-1 truncate font-mono text-[0.8125rem]" title={value}>
 				{value}
 			</dd>
-		</div>
-	);
-}
-
-function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-	return (
-		<div className="flex items-center justify-between gap-4 px-7 py-4">
-			<dt className="text-muted-foreground text-sm">{label}</dt>
-			<dd className={mono ? "truncate font-mono text-[13px]" : "text-sm"}>{value}</dd>
 		</div>
 	);
 }

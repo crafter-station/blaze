@@ -2,23 +2,26 @@
 
 import { Check, Copy } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
  * Copy affordance for code and prompt blocks.
  *
- * Deliberately a small client island rather than making whole pages client components:
- * the docs and landing page are static server-rendered content, and clipboard access is
- * the only thing on them that needs JavaScript at all.
+ * A small client island rather than making whole pages client components: the docs and
+ * landing page are static server-rendered content, and clipboard access is the only thing
+ * on them that needs JavaScript at all.
  */
 export function CopyButton({
 	value,
 	label = "Copy",
 	className,
+	iconOnly = false,
 }: {
 	value: string;
 	label?: string;
 	className?: string;
+	iconOnly?: boolean;
 }) {
 	const [copied, setCopied] = useState(false);
 
@@ -33,17 +36,37 @@ export function CopyButton({
 		}
 	}
 
+	const icon = copied ? (
+		<Check className="text-success" data-icon="inline-start" />
+	) : (
+		<Copy data-icon="inline-start" />
+	);
+
+	if (iconOnly) {
+		return (
+			<Button
+				type="button"
+				variant="ghost"
+				size="icon-sm"
+				onClick={copy}
+				aria-label={copied ? "Copied" : label}
+				className={className}
+			>
+				{icon}
+			</Button>
+		);
+	}
+
 	return (
-		<button
+		<Button
 			type="button"
+			variant="ghost"
+			size="xs"
 			onClick={copy}
-			className={cn(
-				"inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-muted-foreground text-xs transition-colors hover:bg-accent hover:text-foreground",
-				className,
-			)}
+			className={cn("text-muted-foreground", className)}
 		>
-			{copied ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
-			{copied ? "Copied" : label}
-		</button>
+			{icon}
+			<span aria-live="polite">{copied ? "Copied" : label}</span>
+		</Button>
 	);
 }

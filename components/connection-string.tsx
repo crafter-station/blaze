@@ -2,49 +2,62 @@
 
 import { Check, Copy, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 /**
- * Connection details block, matching Neon's: labelled box, monospace string, reveal and
- * copy affordances on the right.
+ * Connection details field: monospace string with reveal and copy on the right.
  *
- * Masked by default — the password is the whole secret, and these strings end up in
+ * Masked by default: the password is the whole secret, and these strings end up in
  * screenshares and screenshots far more often than they get typed.
  */
-export function ConnectionString({ value, masked }: { value: string; masked: string }) {
+export function ConnectionString({
+	value,
+	masked,
+	label = "Connection string",
+	className,
+}: {
+	value: string;
+	masked: string;
+	label?: string;
+	className?: string;
+}) {
 	const [revealed, setRevealed] = useState(false);
 	const [copied, setCopied] = useState(false);
 
 	async function copy() {
-		await navigator.clipboard.writeText(value);
-		setCopied(true);
-		setTimeout(() => setCopied(false), 1500);
+		try {
+			await navigator.clipboard.writeText(value);
+			setCopied(true);
+			setTimeout(() => setCopied(false), 1500);
+		} catch {}
 	}
 
 	return (
-		<div className="rounded-lg border border-border bg-background p-4">
-			<p className="mb-2 text-muted-foreground text-xs">Connection string</p>
-			<div className="flex items-center gap-3">
-				<code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap text-[13px] text-foreground/90">
+		<div className={cn("min-w-0", className)}>
+			{label && <p className="mb-1.5 text-muted-foreground text-xs">{label}</p>}
+			<div className="flex h-10 items-center gap-1 rounded-md border border-border bg-background pr-1 pl-3 shadow-xs">
+				<code className="no-scrollbar min-w-0 flex-1 overflow-x-auto whitespace-nowrap text-[0.8125rem] text-foreground/90">
 					{revealed ? value : masked}
 				</code>
-				<div className="flex shrink-0 items-center gap-2">
-					<button
-						type="button"
-						onClick={() => setRevealed(!revealed)}
-						className="rounded-lg border border-border p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-						aria-label={revealed ? "Hide password" : "Reveal password"}
-					>
-						{revealed ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-					</button>
-					<button
-						type="button"
-						onClick={copy}
-						className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-muted-foreground text-sm transition-colors hover:bg-accent hover:text-foreground"
-					>
-						{copied ? <Check className="size-4 text-success" /> : <Copy className="size-4" />}
-						{copied ? "Copied" : "Copy"}
-					</button>
-				</div>
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							onClick={() => setRevealed(!revealed)}
+							aria-label={revealed ? "Hide password" : "Reveal password"}
+						>
+							{revealed ? <EyeOff /> : <Eye />}
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent>{revealed ? "Hide password" : "Reveal password"}</TooltipContent>
+				</Tooltip>
+				<Button variant="outline" size="sm" onClick={copy} className="min-w-[76px]">
+					{copied ? <Check className="text-success" /> : <Copy />}
+					<span aria-live="polite">{copied ? "Copied" : "Copy"}</span>
+				</Button>
 			</div>
 		</div>
 	);

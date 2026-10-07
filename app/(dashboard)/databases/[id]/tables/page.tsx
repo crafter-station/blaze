@@ -1,8 +1,11 @@
-import { ArrowLeft, ChevronLeft, ChevronRight, Table2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, CircleAlert, Eye, Table2 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { EmptyState, PageHeader, Panel } from "@/components/console/page";
 import { StatusPill } from "@/components/dashboard/status-pill";
+import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth";
+import { ENGINE_CONFIG } from "@/lib/engines/types";
 import { getOwnedDatabase } from "@/lib/provision";
 import { listTables, PAGE_SIZE, readTablePage, type TableRef } from "@/lib/tables";
 import { cn } from "@/lib/utils";
@@ -51,92 +54,119 @@ export default async function TablesPage({
 		return `/databases/${id}/tables?schema=${encodeURIComponent(table.schema)}&table=${encodeURIComponent(table.name)}&offset=${nextOffset}`;
 	}
 
+	const hasSql = ENGINE_CONFIG[record.engine].hasSql;
+
 	return (
 		<div className="space-y-8">
-			<div>
-				<Link
-					href={`/databases/${id}`}
-					className="inline-flex items-center gap-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground"
-				>
-					<ArrowLeft className="size-3.5" />
-					{record.name}
-				</Link>
-			</div>
-
-			<div className="flex flex-wrap items-start justify-between gap-4">
-				<div className="flex items-center gap-3">
-					<h1 className="font-semibold text-[34px] leading-tight tracking-tight">Tables</h1>
-					<StatusPill status={record.status} />
-				</div>
-			</div>
+			<PageHeader
+				back={{ href: `/databases/${id}`, label: record.name }}
+				title="Tables"
+				meta={<StatusPill status={record.status} />}
+				description={
+					tables.length > 0
+						? `${tables.length} ${tables.length === 1 ? "relation" : "relations"} across ${groupBySchema(tables).length} ${groupBySchema(tables).length === 1 ? "schema" : "schemas"}`
+						: undefined
+				}
+			/>
 
 			{listError ? (
-				<div className="rounded-xl border border-destructive/30 bg-destructive/5 px-7 py-5">
-					<p className="font-medium text-destructive text-sm">Could not read the schema</p>
-					<p className="mt-1.5 font-mono text-muted-foreground text-xs">{listError}</p>
+				<div
+					role="alert"
+					className="flex gap-3 rounded-xl border border-destructive/30 bg-destructive/[0.06] px-5 py-4"
+				>
+					<CircleAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
+					<div className="min-w-0">
+						<p className="font-medium text-destructive text-sm">Could not read the schema</p>
+						<p className="mt-1 break-words font-mono text-muted-foreground text-xs">{listError}</p>
+					</div>
 				</div>
 			) : tables.length === 0 ? (
-				<section className="rounded-xl border border-border bg-card px-7 py-20 text-center">
-					<Table2 className="mx-auto mb-4 size-8 text-muted-foreground/50" />
-					<p className="font-medium">No tables yet</p>
-					<p className="mx-auto mt-1.5 max-w-md text-muted-foreground text-sm">
-						Create one from the{" "}
-						<Link href={`/databases/${id}/sql`} className="text-foreground underline">
-							SQL Editor
-						</Link>{" "}
-						and it will show up here.
-					</p>
-				</section>
+				<Panel>
+					<EmptyState
+						icon={Table2}
+						title="No tables yet"
+						description={
+							hasSql ? (
+								<>
+									Create one from the{" "}
+									<Link
+										href={`/databases/${id}/sql`}
+										className="text-foreground underline underline-offset-4"
+									>
+										SQL editor
+									</Link>{" "}
+									and it will show up here.
+								</>
+							) : (
+								"Write some data with your client and it will show up here."
+							)
+						}
+					/>
+				</Panel>
 			) : (
-				<div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
-					<aside className="rounded-xl border border-border bg-card p-2">
+				<div className="grid gap-4 lg:grid-cols-[232px_minmax(0,1fr)] lg:gap-6">
+					<aside
+						aria-label="Tables"
+						className="max-h-64 overflow-y-auto rounded-xl border border-border bg-card p-1.5 shadow-xs lg:sticky lg:top-20 lg:max-h-[calc(100dvh-7rem)]"
+					>
 						{groupBySchema(tables).map(([schema, items]) => (
-							<div key={schema} className="mb-2 last:mb-0">
-								<p className="px-3 py-2 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
+							<div key={schema} className="mb-1.5 last:mb-0">
+								<p className="px-2.5 pt-2 pb-1.5 font-medium font-mono text-[0.6875rem] text-muted-foreground">
 									{schema}
 								</p>
-								<div className="space-y-0.5">
+								<ul className="space-y-px">
 									{items.map((table) => {
 										const active =
 											selected?.schema === table.schema && selected?.name === table.name;
+										const Icon = table.type === "view" ? Eye : Table2;
 										return (
-											<Link
-												key={`${table.schema}.${table.name}`}
-												href={href(table)}
-												className={cn(
-													"flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors",
-													active
-														? "bg-accent font-medium text-foreground"
-														: "text-muted-foreground hover:bg-accent hover:text-foreground",
-												)}
-											>
-												<Table2 className="size-3.5 shrink-0" />
-												<span className="truncate">{table.name}</span>
-												{table.type === "view" && (
-													<span className="ml-auto text-[10px] text-muted-foreground">view</span>
-												)}
-											</Link>
+											<li key={`${table.schema}.${table.name}`}>
+												<Link
+													href={href(table)}
+													aria-current={active ? "page" : undefined}
+													className={cn(
+														"relative flex h-8 items-center gap-2 rounded-md px-2.5 text-[0.8125rem] transition-colors",
+														active
+															? "bg-accent font-medium text-foreground"
+															: "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+													)}
+												>
+													{active && (
+														<span
+															aria-hidden="true"
+															className="absolute top-2 bottom-2 -left-1.5 w-[3px] rounded-r-full bg-brand"
+														/>
+													)}
+													<Icon className="size-3.5 shrink-0" strokeWidth={1.75} />
+													<span className="truncate">{table.name}</span>
+													{table.type === "view" && (
+														<span className="ml-auto text-[0.625rem] text-muted-foreground">
+															view
+														</span>
+													)}
+												</Link>
+											</li>
 										);
 									})}
-								</div>
+								</ul>
 							</div>
 						))}
 					</aside>
 
-					<section className="min-w-0 overflow-hidden rounded-xl border border-border bg-card">
+					<section className="min-w-0 overflow-hidden rounded-xl border border-border bg-card shadow-xs">
 						{selected && page ? (
 							<>
-								<div className="flex flex-wrap items-center justify-between gap-3 border-border border-b px-5 py-3 text-xs">
-									<p className="text-muted-foreground">
-										<span className="font-mono text-foreground">
+								<div className="flex flex-wrap items-center justify-between gap-3 border-border border-b px-4 py-2.5 text-xs">
+									<p className="flex min-w-0 items-center gap-3 text-muted-foreground">
+										<span className="truncate font-mono text-foreground">
 											{selected.schema}.{selected.name}
 										</span>
-										<span className="ml-3">
+										<span className="tabular-nums">
 											{page.total} row{page.total === 1 ? "" : "s"}
 										</span>
-										<span className="ml-3 tabular-nums">{page.durationMs}ms</span>
+										<span className="font-mono tabular-nums">{page.durationMs}ms</span>
 									</p>
-									<Pagination id={id} table={selected} page={page} href={href} />
+									<Pagination table={selected} page={page} href={href} />
 								</div>
 
 								{page.rows.length === 0 ? (
@@ -144,21 +174,23 @@ export default async function TablesPage({
 										This table is empty.
 									</p>
 								) : (
-									<div className="max-h-[560px] overflow-auto">
+									<div className="max-h-[600px] overflow-auto">
 										<table className="w-full text-left text-xs">
-											<thead className="sticky top-0 bg-card">
-												<tr className="border-border border-b">
+											<thead className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">
+												<tr>
 													{page.columns.map((column) => (
 														<th
 															key={column.name}
-															className="whitespace-nowrap px-4 py-2.5 font-medium"
+															className="whitespace-nowrap px-4 py-2 font-medium"
 														>
 															{column.name}
-															{/* Type beside the name, as in the reference — it is the
-															    question you have most often when reading a grid. */}
-															<span className="ml-2 font-normal text-[10px] text-muted-foreground">
+															{/* Type beside the name: it is the question you have most
+															    often when reading a grid. */}
+															<span className="ml-2 font-mono font-normal text-[0.625rem] text-muted-foreground">
 																{column.type}
-																{column.isPrimaryKey && " · pk"}
+																{column.isPrimaryKey && (
+																	<span className="ml-1 text-brand-text">pk</span>
+																)}
 															</span>
 														</th>
 													))}
@@ -167,13 +199,13 @@ export default async function TablesPage({
 											<tbody className="divide-y divide-border">
 												{page.rows.map((row, rowIndex) => (
 													// Rows have no stable identity here; index is all there is.
-													<tr key={rowIndex} className="hover:bg-accent/40">
+													<tr key={rowIndex} className="transition-colors hover:bg-muted/50">
 														{row.map((cell, cellIndex) => (
 															<td
 																key={cellIndex}
 																className={cn(
 																	"max-w-[320px] truncate px-4 py-2 font-mono",
-																	cell === null && "text-muted-foreground/50 italic",
+																	cell === null && "text-muted-foreground/60 italic",
 																)}
 																title={cell === null ? "NULL" : String(cell)}
 															>
@@ -204,7 +236,6 @@ function Pagination({
 	page,
 	href,
 }: {
-	id: string;
 	table: TableRef;
 	page: { total: number; offset: number };
 	href: (table: TableRef, offset: number) => string;
@@ -215,9 +246,9 @@ function Pagination({
 	const hasNext = page.offset + PAGE_SIZE < page.total;
 
 	return (
-		<div className="flex items-center gap-3">
+		<div className="flex items-center gap-2">
 			<span className="text-muted-foreground tabular-nums">
-				{from}–{to}
+				{from}-{to} of {page.total}
 			</span>
 			<div className="flex items-center gap-1">
 				<PageLink
@@ -225,10 +256,10 @@ function Pagination({
 					disabled={!hasPrev}
 					label="Previous page"
 				>
-					<ChevronLeft className="size-3.5" />
+					<ChevronLeft />
 				</PageLink>
 				<PageLink href={href(table, page.offset + PAGE_SIZE)} disabled={!hasNext} label="Next page">
-					<ChevronRight className="size-3.5" />
+					<ChevronRight />
 				</PageLink>
 			</div>
 		</div>
@@ -248,19 +279,17 @@ function PageLink({
 }) {
 	if (disabled) {
 		return (
-			<span className="cursor-not-allowed rounded-md border border-border p-1.5 text-muted-foreground/35">
+			<Button variant="outline" size="icon-xs" disabled aria-label={label}>
 				{children}
-			</span>
+			</Button>
 		);
 	}
 	return (
-		<Link
-			href={href}
-			aria-label={label}
-			className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-		>
-			{children}
-		</Link>
+		<Button variant="outline" size="icon-xs" asChild>
+			<Link href={href} aria-label={label}>
+				{children}
+			</Link>
+		</Button>
 	);
 }
 

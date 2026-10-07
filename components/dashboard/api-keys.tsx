@@ -1,10 +1,37 @@
 "use client";
 
-import { Check, Copy, Loader2, Plus, TriangleAlert } from "lucide-react";
+import { Check, ChevronDown, Copy, Loader2, Plus, TriangleAlert } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { createApiKeyAction, revokeApiKeyAction } from "@/app/actions";
+import { CopyButton } from "@/components/copy-button";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { setupPrompt } from "@/lib/setup-prompt";
+import { cn } from "@/lib/utils";
 
 export function CreateApiKey({ atLimit }: { atLimit: boolean }) {
 	const [pending, start] = useTransition();
@@ -15,13 +42,20 @@ export function CreateApiKey({ atLimit }: { atLimit: boolean }) {
 		start(async () => {
 			const result = await createApiKeyAction(formData);
 			if (result.ok && result.token) {
-				setIssued({ token: result.token, name: result.name ?? "New key" });
 				setOpen(false);
+				setIssued({ token: result.token, name: result.name ?? "New key" });
 			} else {
 				toast.error(result.error ?? "Failed to create key");
 			}
 		});
 	}
+
+	const trigger = (
+		<Button disabled={atLimit}>
+			<Plus data-icon="inline-start" />
+			New key
+		</Button>
+	);
 
 	return (
 		<>
@@ -29,46 +63,51 @@ export function CreateApiKey({ atLimit }: { atLimit: boolean }) {
 				<IssuedKey token={issued.token} name={issued.name} onDone={() => setIssued(null)} />
 			)}
 
-			{open ? (
-				<form
-					action={submit}
-					className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-5"
-				>
-					<label className="flex flex-col gap-1.5">
-						<span className="text-muted-foreground text-xs">Name</span>
-						<input
-							name="name"
-							placeholder="production agent"
-							className="w-56 rounded-md border border-input bg-background px-2.5 py-1.5 text-sm outline-none focus:border-primary"
-						/>
-					</label>
-					<button
-						type="submit"
-						disabled={pending}
-						className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 font-medium text-primary-foreground text-sm disabled:opacity-60"
-					>
-						{pending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-						{pending ? "Creating" : "Create key"}
-					</button>
-					<button
-						type="button"
-						onClick={() => setOpen(false)}
-						className="rounded-md px-3 py-2 text-muted-foreground text-sm hover:text-foreground"
-					>
-						Cancel
-					</button>
-				</form>
+			{atLimit ? (
+				<Tooltip>
+					<TooltipTrigger asChild>
+						{/* biome-ignore lint/a11y/noNoninteractiveTabindex: a disabled button cannot take focus, so the wrapper carries the explanation for keyboard users. */}
+						<span tabIndex={0} className="rounded-md">
+							{trigger}
+						</span>
+					</TooltipTrigger>
+					<TooltipContent>Key limit reached. Revoke one first.</TooltipContent>
+				</Tooltip>
 			) : (
-				<button
-					type="button"
-					onClick={() => setOpen(true)}
-					disabled={atLimit}
-					className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 font-medium text-primary-foreground text-sm transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-					title={atLimit ? "Key limit reached — revoke one first" : undefined}
-				>
-					<Plus className="size-4" />
-					New key
-				</button>
+				<Dialog open={open} onOpenChange={(next) => !pending && setOpen(next)}>
+					<DialogTrigger asChild>{trigger}</DialogTrigger>
+					<DialogContent className="sm:max-w-md">
+						<DialogHeader>
+							<DialogTitle>New API key</DialogTitle>
+							<DialogDescription>
+								Keys act as you and reach every database you own. Name it after where it will live.
+							</DialogDescription>
+						</DialogHeader>
+						<form action={submit} className="grid gap-5">
+							<div className="grid gap-2">
+								<Label htmlFor="key-name">Name</Label>
+								<Input
+									id="key-name"
+									name="name"
+									placeholder="production agent"
+									autoComplete="off"
+									autoFocus
+								/>
+							</div>
+							<DialogFooter>
+								<DialogClose asChild>
+									<Button type="button" variant="ghost" disabled={pending}>
+										Cancel
+									</Button>
+								</DialogClose>
+								<Button type="submit" disabled={pending}>
+									{pending && <Loader2 className="animate-spin" data-icon="inline-start" />}
+									{pending ? "Creating" : "Create key"}
+								</Button>
+							</DialogFooter>
+						</form>
+					</DialogContent>
+				</Dialog>
 			)}
 		</>
 	);
@@ -77,118 +116,130 @@ export function CreateApiKey({ atLimit }: { atLimit: boolean }) {
 /**
  * The one and only time this token is visible.
  *
- * Deliberately blocking and deliberately loud: only the hash is stored, so a user who
- * navigates away without copying has permanently lost the key. The dismiss button says
- * what dismissing costs rather than being a neutral "Close".
+ * Deliberately blocking: only the hash is stored, so a user who dismisses this without
+ * copying has permanently lost the key. Outside clicks and Escape do nothing, and the
+ * only exit says what leaving costs rather than being a neutral "Close".
  */
 function IssuedKey({ token, name, onDone }: { token: string; name: string; onDone: () => void }) {
 	const [copied, setCopied] = useState(false);
+	const [showPrompt, setShowPrompt] = useState(false);
 
 	async function copy() {
-		await navigator.clipboard.writeText(token);
-		setCopied(true);
-		setTimeout(() => setCopied(false), 2000);
+		try {
+			await navigator.clipboard.writeText(token);
+			setCopied(true);
+			setTimeout(() => setCopied(false), 2000);
+		} catch {}
 	}
 
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-6">
-			<div className="w-full max-w-2xl rounded-xl border border-border bg-card p-7">
-				<div className="mb-4 flex items-center gap-3">
-					<TriangleAlert className="size-5 text-warning" />
-					<h2 className="font-medium text-base">Copy your key now</h2>
-				</div>
-				<p className="mb-5 text-muted-foreground text-sm">
-					<span className="text-foreground">{name}</span> is shown once. blaze stores only a hash,
-					so this value cannot be recovered — if you lose it you will need to create a new key.
-				</p>
-				<div className="flex items-center gap-3 rounded-lg border border-border bg-background p-4">
-					<code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap text-[13px]">
+		<Dialog open onOpenChange={() => {}}>
+			<DialogContent
+				showCloseButton={false}
+				onEscapeKeyDown={(event) => event.preventDefault()}
+				onPointerDownOutside={(event) => event.preventDefault()}
+				onInteractOutside={(event) => event.preventDefault()}
+				className="sm:max-w-xl"
+			>
+				<DialogHeader>
+					<span className="mb-1 flex size-9 items-center justify-center rounded-lg border border-warning/25 bg-warning/10">
+						<TriangleAlert className="size-4 text-warning" />
+					</span>
+					<DialogTitle>Copy your key now</DialogTitle>
+					<DialogDescription>
+						<span className="text-foreground">{name}</span> is shown once. blaze stores only a hash,
+						so this value cannot be recovered. If you lose it, create a new key.
+					</DialogDescription>
+				</DialogHeader>
+
+				<div className="flex h-11 items-center gap-2 rounded-md border border-border bg-background pr-1.5 pl-3 shadow-xs">
+					<code className="no-scrollbar min-w-0 flex-1 overflow-x-auto whitespace-nowrap text-[0.8125rem]">
 						{token}
 					</code>
-					<button
-						type="button"
-						onClick={copy}
-						className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm transition-colors hover:bg-accent"
-					>
-						{copied ? <Check className="size-4 text-success" /> : <Copy className="size-4" />}
-						{copied ? "Copied" : "Copy"}
-					</button>
+					<Button variant="outline" size="sm" onClick={copy} className="min-w-[76px]">
+						{copied ? <Check className="text-success" /> : <Copy />}
+						<span aria-live="polite">{copied ? "Copied" : "Copy"}</span>
+					</Button>
 				</div>
-				<details className="mt-5 rounded-lg border border-border bg-background p-4">
-					<summary className="cursor-pointer text-muted-foreground text-sm">
-						Set this up in Claude Code — copy a ready-made prompt
-					</summary>
-					<div className="mt-3 flex items-start gap-3">
-						<pre className="max-h-48 min-w-0 flex-1 overflow-auto whitespace-pre-wrap text-[12px] text-muted-foreground leading-relaxed">
-							{setupPrompt(token)}
-						</pre>
-						<button
-							type="button"
-							onClick={() => navigator.clipboard.writeText(setupPrompt(token))}
-							className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-muted-foreground text-xs transition-colors hover:bg-accent hover:text-foreground"
-						>
-							Copy prompt
-						</button>
-					</div>
-				</details>
 
-				<div className="mt-6 flex justify-end">
+				<div className="overflow-hidden rounded-lg border border-border">
 					<button
 						type="button"
-						onClick={onDone}
-						className="rounded-lg border border-border px-4 py-2.5 text-sm transition-colors hover:bg-accent"
+						onClick={() => setShowPrompt(!showPrompt)}
+						aria-expanded={showPrompt}
+						className="flex w-full items-center justify-between gap-3 px-3.5 py-2.5 text-left text-muted-foreground text-sm transition-colors hover:bg-accent/60 hover:text-foreground"
 					>
-						I've saved it
+						Set this up in your agent with a ready-made prompt
+						<ChevronDown
+							className={cn("size-4 shrink-0 transition-transform", showPrompt && "rotate-180")}
+						/>
 					</button>
+					{showPrompt && (
+						<div className="border-border border-t bg-background">
+							<div className="flex justify-end border-border border-b px-2 py-1">
+								<CopyButton value={setupPrompt(token)} label="Copy prompt" />
+							</div>
+							<pre className="max-h-52 overflow-auto whitespace-pre-wrap px-3.5 py-3 text-[0.75rem] text-muted-foreground leading-relaxed">
+								{setupPrompt(token)}
+							</pre>
+						</div>
+					)}
 				</div>
-			</div>
-		</div>
+
+				<DialogFooter>
+					<Button onClick={onDone} variant="outline">
+						I have saved it
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 }
 
 export function RevokeApiKey({ id, name }: { id: string; name: string }) {
 	const [pending, start] = useTransition();
-	const [confirming, setConfirming] = useState(false);
+	const [open, setOpen] = useState(false);
 
-	function revoke() {
+	function revoke(event: React.MouseEvent) {
+		event.preventDefault();
 		start(async () => {
 			const result = await revokeApiKeyAction(id);
-			if (result.ok) toast.success(`Revoked ${name}`);
-			else toast.error(result.error ?? "Failed to revoke");
-			setConfirming(false);
+			if (result.ok) {
+				toast.success(`Revoked ${name}`);
+				setOpen(false);
+			} else {
+				toast.error(result.error ?? "Failed to revoke");
+			}
 		});
 	}
 
-	if (!confirming) {
-		return (
-			<button
-				type="button"
-				onClick={() => setConfirming(true)}
-				className="text-muted-foreground text-xs transition-colors hover:text-destructive"
-			>
-				Revoke
-			</button>
-		);
-	}
-
 	return (
-		<span className="flex items-center gap-2 text-xs">
-			<span className="text-muted-foreground">Anything using it stops working.</span>
-			<button
-				type="button"
-				onClick={revoke}
-				disabled={pending}
-				className="font-medium text-destructive disabled:opacity-60"
-			>
-				{pending ? "Revoking" : "Revoke"}
-			</button>
-			<button
-				type="button"
-				onClick={() => setConfirming(false)}
-				className="text-muted-foreground hover:text-foreground"
-			>
-				Cancel
-			</button>
-		</span>
+		<AlertDialog open={open} onOpenChange={(next) => !pending && setOpen(next)}>
+			<AlertDialogTrigger asChild>
+				<Button
+					variant="ghost"
+					size="xs"
+					className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+				>
+					Revoke
+				</Button>
+			</AlertDialogTrigger>
+			<AlertDialogContent>
+				<AlertDialogHeader>
+					<AlertDialogTitle>Revoke {name}?</AlertDialogTitle>
+					<AlertDialogDescription>
+						Anything using this key gets a 401 from its next request. Databases it created are not
+						affected.
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter>
+					<AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+					<AlertDialogAction variant="destructive" onClick={revoke} disabled={pending}>
+						{pending && <Loader2 className="animate-spin" data-icon="inline-start" />}
+						{pending ? "Revoking" : "Revoke key"}
+					</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
 	);
 }
