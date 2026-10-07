@@ -1,0 +1,15 @@
+---
+title: Authentication
+description: Bearer API keys, shown once and stored only as a hash.
+icon: KeyRound
+---
+
+Every request carries a bearer token. Keys are shown once at creation and stored only as a hash: a lost key is replaced, not recovered.
+
+```http title="Header"
+Authorization: Bearer blz_live_...
+```
+
+A key acts as its owner and reaches every database that account owns. Missing, malformed, unknown and revoked keys all return the same `401`. Distinguishing them would let someone probe which keys exist.
+
+Create and revoke keys on the [API keys](/api-keys) page.

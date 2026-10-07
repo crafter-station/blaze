@@ -1,0 +1,9 @@
+---
+title: Projects
+description: A grouping you rarely need to think about.
+icon: FolderTree
+---
+
+Databases live in projects, and a `default` project is created for you on first use, so you never have to think about them.
+
+`POST /v1/projects` is idempotent by name, so an agent that cannot remember whether it already created one can call it again safely.

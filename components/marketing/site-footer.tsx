@@ -4,8 +4,8 @@ import { ThemeToggle } from "@/components/theme/toggle";
 
 const LINKS = [
 	{ href: "/docs", label: "Docs" },
-	{ href: "/docs#quickstart", label: "Quickstart" },
-	{ href: "/docs#mcp", label: "MCP server" },
+	{ href: "/docs/quickstart", label: "Quickstart" },
+	{ href: "/docs/mcp", label: "MCP server" },
 	{ href: "/waitlist", label: "Waitlist" },
 	{ href: "/sign-in", label: "Sign in" },
 ];

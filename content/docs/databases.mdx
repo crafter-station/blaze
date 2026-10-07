@@ -1,0 +1,24 @@
+---
+title: Databases
+description: Create, list, read, rename, expire and delete.
+icon: Database
+---
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| `GET` | `/v1/databases` | List. No credentials included. |
+| `POST` | `/v1/databases` | Create. Returns the connection string. |
+| `GET` | `/v1/databases/:id` | Read one, with credentials. |
+| `PATCH` | `/v1/databases/:id` | Rename, or set/clear `ttl_seconds`. |
+| `DELETE` | `/v1/databases/:id` | Permanent. |
+
+## Expiry
+
+`ttl_seconds` names its unit deliberately: guessing wrong should give you a database that lives 24 hours rather than 24 seconds. Send `null` to clear an expiry; omit the field to leave it untouched.
+
+```bash title="Clear an expiry"
+curl -X PATCH https://blaze.crafter.run/v1/databases/$ID \
+  -H "Authorization: Bearer $BLAZE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"ttl_seconds":null}'
+```

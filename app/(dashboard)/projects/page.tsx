@@ -171,13 +171,13 @@ function GetConnected() {
 			icon: Braces,
 			title: "REST API",
 			body: "Provision and query from a script or CI with an API key.",
-			href: "/docs#databases",
+			href: "/docs/databases",
 		},
 		{
 			icon: Bot,
 			title: "MCP server",
 			body: "Let an agent create and query databases in conversation.",
-			href: "/docs#mcp",
+			href: "/docs/mcp",
 		},
 	];
 

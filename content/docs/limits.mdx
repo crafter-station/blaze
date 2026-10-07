@@ -1,0 +1,17 @@
+---
+title: Limits
+description: What the free alpha allows, and what happens at the edge.
+icon: Gauge
+---
+
+<LimitsTable />
+
+blaze is free and has no billing, so these limits are what keeps it running rather than a tier to upgrade out of.
+
+## Storage enforcement
+
+Storage is sampled every five minutes. A database over its limit is suspended (connections refused, nothing deleted) and reinstated automatically once it is back under.
+
+## Engine availability
+
+<EngineList />

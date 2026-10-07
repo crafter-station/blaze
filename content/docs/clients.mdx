@@ -1,0 +1,46 @@
+---
+title: Connect a client
+description: Claude Code, Claude Desktop, ChatGPT and Codex.
+icon: Plug
+---
+
+Any MCP client that speaks Streamable HTTP works. Where a client supports OAuth you never handle a key; where it does not, send an API key header instead.
+
+<Tabs items={["Claude Code", "Claude Desktop", "ChatGPT", "Codex"]}>
+<Tab value="Claude Code">
+
+```bash title="Terminal"
+claude mcp add --transport http blaze https://blaze.crafter.run/v1/mcp
+
+# no browser available? use a key instead:
+claude mcp add --transport http blaze https://blaze.crafter.run/v1/mcp \
+  --header "Authorization: Bearer $BLAZE_KEY"
+```
+
+</Tab>
+<Tab value="Claude Desktop">
+
+Settings → Connectors → *Add custom connector*. Paste <McpUrl /> and approve the browser prompt.
+
+</Tab>
+<Tab value="ChatGPT">
+
+Settings → Connectors → *Add* (developer mode must be enabled). Paste <McpUrl /> and authorize.
+
+</Tab>
+<Tab value="Codex">
+
+```toml title="~/.codex/config.toml"
+[mcp_servers.blaze]
+url = "https://blaze.crafter.run/v1/mcp"
+
+# or, without OAuth:
+# http_headers = { Authorization = "Bearer blz_live_..." }
+```
+
+</Tab>
+</Tabs>
+
+<Callout title="How browser clients find the OAuth flow">
+  Browser-based clients read the `WWW-Authenticate` header on a 401 to start the OAuth flow, so blaze sends CORS headers that expose it. The endpoint also answers `405` to an SSE `GET`: it is stateless and never pushes messages, and saying so is cleaner than leaving a stream open that will never carry anything.
+</Callout>

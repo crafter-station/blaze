@@ -1,0 +1,20 @@
+{
+	"title": "blaze",
+	"pages": [
+		"---Get started---",
+		"index",
+		"quickstart",
+		"---MCP---",
+		"mcp",
+		"clients",
+		"---REST API---",
+		"auth",
+		"databases",
+		"query",
+		"projects",
+		"errors",
+		"---Platform---",
+		"limits",
+		"tls"
+	]
+}

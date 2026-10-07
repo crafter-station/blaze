@@ -1,0 +1,52 @@
+---
+title: Quickstart
+description: From an API key to a working connection string in one request.
+icon: Rocket
+---
+
+<Steps>
+<Step>
+
+### Create an API key
+
+Create a key on the [API keys](/api-keys) page. It is shown once, so copy it somewhere safe.
+
+</Step>
+<Step>
+
+### Create a database
+
+```bash title="Create a database"
+curl -X POST https://blaze.crafter.run/v1/databases \
+  -H "Authorization: Bearer $BLAZE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"my-app","ttl_seconds":86400}'
+```
+
+</Step>
+<Step>
+
+### Use the connection string
+
+```json title="Response"
+{
+  "id": "db_c28u7dyz23fc",
+  "name": "my-app",
+  "engine": "postgres",
+  "status": "active",
+  "host": "pg.blaze.crafter.run",
+  "port": 5433,
+  "connection_string": "postgresql://u_my_app_q647:...@pg.blaze.crafter.run:5433/db_my_app_x4k2?sslmode=require",
+  "expires_at": "2026-08-20T20:28:12.171Z",
+  "took_ms": 286
+}
+```
+
+Paste `connection_string` into your app's config, or skip drivers entirely and [run SQL over HTTP](/docs/query).
+
+</Step>
+</Steps>
+
+<Callout title="Prefer an agent?">
+  The [MCP server](/docs/mcp) does all of this from a conversation and needs no API key at all.
+</Callout>

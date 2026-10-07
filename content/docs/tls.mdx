@@ -1,0 +1,11 @@
+---
+title: TLS
+description: Encrypted on every connection. Self-signed for now.
+icon: Lock
+---
+
+The server refuses unencrypted connections. The certificate is currently self-signed, which means traffic is encrypted but the server is not authenticated.
+
+<Callout type="warn" title="node-postgres">
+  Most clients work with `?sslmode=require` (libpq, psql, psycopg, pgx, Prisma, postgres.js) because `require` means "encrypt, do not verify". **node-postgres 8.23+** currently treats it as `verify-full` and will reject the certificate; use `?sslmode=no-verify` there until a publicly trusted certificate is in place.
+</Callout>

@@ -1,0 +1,18 @@
+---
+title: Running SQL
+description: Query over HTTP, without a driver.
+icon: SquareTerminal
+---
+
+```bash title="POST /v1/databases/:id/query"
+curl -X POST https://blaze.crafter.run/v1/databases/$ID/query \
+  -H "Authorization: Bearer $BLAZE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"sql":"select now(), version()"}'
+```
+
+Queries run as that database's own role, so they reach nothing else on the instance. Statements time out after <StatementTimeout /> and at most 500 rows come back.
+
+<Callout type="warn" title="Read ok before rows">
+  A SQL error returns `200` with `"ok": false`, not a 4xx. The HTTP call succeeded; the SQL did not. Collapsing the two would make clients retry transport failures and syntax errors identically, so read `ok` before trusting `rows`.
+</Callout>

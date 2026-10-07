@@ -2,6 +2,9 @@
 @import "tw-animate-css";
 @import "@clerk/themes/shadcn.css";
 @import "shadcn/tailwind.css";
+/* Fumadocs (/docs): its shadcn theme reads the same --background/--primary/... tokens. */
+@import "fumadocs-ui/css/shadcn.css";
+@import "fumadocs-ui/css/preset.css";
 
 /*
  * Class-based dark mode, driven by next-themes. `:where` keeps the variant at zero
@@ -328,4 +331,33 @@
 	.blaze-drift-slow {
 		transform: translate3d(0, -25%, 0);
 	}
+}
+
+/*
+ * Fumadocs refinements. Its "primary" colours active links and inline accents, so it gets
+ * the text-safe brand tone rather than the fill; everything else is inherited from the
+ * tokens above through fumadocs-ui/css/shadcn.css.
+ */
+:root,
+.dark {
+	--color-fd-primary: var(--brand-text);
+	--color-fd-primary-foreground: var(--background);
+	--color-fd-overlay: rgb(0 0 0 / 0.45);
+	--color-fd-info: var(--muted-foreground);
+	--color-fd-warning: var(--warning);
+	--color-fd-success: var(--success);
+}
+
+#nd-sidebar {
+	--color-fd-primary-foreground: var(--background);
+}
+
+#nd-docs-layout .prose {
+	--tw-prose-body: var(--foreground);
+	--tw-prose-headings: var(--foreground);
+	--tw-prose-links: var(--foreground);
+}
+
+#nd-docs-layout .prose :where(pre, figure.shiki) {
+	background: var(--code-background);
 }

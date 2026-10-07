@@ -1,0 +1,21 @@
+---
+title: Errors
+description: Stable codes to branch on.
+icon: TriangleAlert
+---
+
+```json title="Error body"
+{ "error": { "code": "quota_exceeded", "message": "Limit of 5 databases reached..." } }
+```
+
+Branch on `code`, never on the message. Codes are stable; wording is not.
+
+| Code | Status |
+| --- | --- |
+| `unauthorized` | `401` |
+| `invalid_request` | `400` |
+| `unsupported_engine` | `400` |
+| `quota_exceeded` | `402` |
+| `not_found` | `404` |
+| `database_suspended` | `409` |
+| `internal` | `500` |

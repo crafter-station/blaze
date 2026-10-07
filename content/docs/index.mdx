@@ -1,0 +1,26 @@
+---
+title: Introduction
+description: Managed databases in about 200 milliseconds, from a REST API, an MCP server or the dashboard.
+icon: House
+---
+
+blaze provisions managed databases in about 200 milliseconds and lets you run SQL against them without a driver. Everything in these docs works from an API key: the dashboard is one client of the same API.
+
+<Cards>
+  <Card title="Quickstart" href="/docs/quickstart" description="Create a key, create a database, get a connection string." />
+  <Card title="MCP server" href="/docs/mcp" description="Let an agent create and query databases. No key needed." />
+  <Card title="Databases API" href="/docs/databases" description="Create, read, rename, expire and delete." />
+  <Card title="Limits" href="/docs/limits" description="What the free alpha allows, stated up front." />
+</Cards>
+
+## Engines
+
+<EngineList />
+
+PostgreSQL, MySQL and MariaDB tenants each get their own database and role on a shared instance. Redis gets a dedicated container per tenant, because its ACLs cannot contain a tenant. The others are modelled and on their way.
+
+## Three ways in
+
+- **MCP server.** The fastest way in. Your agent registers itself over OAuth and gets seven tools. See [MCP server](/docs/mcp).
+- **REST API.** Bearer-token JSON over HTTPS. See [Authentication](/docs/auth) and [Databases](/docs/databases).
+- **Dashboard.** The console at [/projects](/projects), for when you want to look rather than script.

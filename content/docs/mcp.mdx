@@ -1,0 +1,29 @@
+---
+title: MCP server
+description: Give your agent databases. OAuth means there is no key to copy.
+icon: Bot
+---
+
+The fastest way in, and it needs no API key at all. blaze advertises OAuth, so Claude Code discovers the authorization server, registers itself, and opens a browser for you to approve once. Paste this and it will configure blaze, verify the connection, and leave you with a working database.
+
+<PromptBlock />
+
+## Endpoint
+
+Endpoint <McpUrl />, Streamable HTTP transport. Authenticate with OAuth, or with the same bearer key as the REST API where no browser is available.
+
+## Tools
+
+Seven tools:
+
+| Tool | What it does |
+| --- | --- |
+| `create_database` | Provision a database, returns a connection string |
+| `list_databases` | Everything this key owns, with size and expiry |
+| `get_connection_string` | Credentials for one database |
+| `run_query` | Execute SQL and get rows back, no driver needed |
+| `set_ttl` | Change or clear auto-delete |
+| `create_api_key` | Mint a key for your own app or CI |
+| `delete_database` | Permanent, no undo |
+
+Setting it up in a specific client is covered in [Connect a client](/docs/clients).
