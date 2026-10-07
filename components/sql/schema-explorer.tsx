@@ -162,7 +162,7 @@ export function SchemaExplorer({
 						Nothing matches “{query}”.
 					</p>
 				) : (
-					<ul className="space-y-0.5">
+					<ul className="space-y-0.5" translate="no">
 						{groups.map(({ schema, tables }) => {
 							const collapsed = collapsedSchemas.has(schema) && !query;
 							return (

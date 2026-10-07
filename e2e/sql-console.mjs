@@ -226,7 +226,12 @@ for (const mode of modes) {
 				await page.keyboard.press("Enter");
 				await page.waitForSelector("#saved-query-name", { state: "detached", timeout: 10_000 });
 				check((await page.getByRole("tab", { name }).count()) > 0, `${tag}: tab renamed after save`);
-				if (!mobile) {
+				{
+					// On phones the side panel is a sheet behind the panel button.
+					if (mobile) {
+						await page.getByRole("button", { name: "Show side panel" }).click();
+						await page.waitForTimeout(400);
+					}
 					await page.getByRole("tab", { name: "Saved" }).click();
 					await page.waitForTimeout(200);
 					check((await page.getByText(name).count()) > 0, `${tag}: saved query listed`);
@@ -243,6 +248,7 @@ for (const mode of modes) {
 					await page.waitForTimeout(400);
 					check((await page.getByText(name, { exact: true }).count()) <= 1, `${tag}: saved query deleted`);
 					await page.getByRole("tab", { name: "Schema" }).click();
+					if (mobile) await page.keyboard.press("Escape");
 				}
 				await page.keyboard.press("Control+k");
 				await page.waitForSelector('[data-slot="command-input"]', { timeout: 10_000 }).catch(() => {});
@@ -266,7 +272,14 @@ for (const mode of modes) {
 				} else {
 					await page.fill("#assistant-prompt", "Top 10 customers by revenue with their country");
 					await page.keyboard.press("Control+Enter");
-					await page.getByRole("button", { name: "Replace editor" }).first().waitFor({ timeout: 30_000 });
+					await page
+						.getByRole("button", { name: "Replace editor" })
+						.first()
+						.waitFor({ timeout: 30_000 })
+						.catch(async (error) => {
+							await shot(page, `${tag}-assistant-generate-failed`, mode, width);
+							throw error;
+						});
 					await page.waitForTimeout(300);
 					await shot(page, `${tag}-assistant-generate`, mode, width);
 					await page.getByRole("button", { name: "Replace editor" }).first().click();
@@ -278,13 +291,28 @@ for (const mode of modes) {
 					await page.keyboard.press("Control+Enter");
 					await waitIdle(page);
 					await page.getByRole("button", { name: "Fix with Claude" }).click();
-					await page.getByRole("button", { name: "Replace editor" }).first().waitFor({ timeout: 30_000 });
+					await page
+						.getByRole("button", { name: "Replace editor" })
+						.first()
+						.waitFor({ timeout: 30_000 })
+						.catch(async (error) => {
+							await shot(page, `${tag}-assistant-fix-failed`, mode, width);
+							throw error;
+						});
 					await page.waitForTimeout(300);
 					check((await page.getByText("Fixing").count()) > 0, `${tag}: fix request shows the failing SQL`);
 					await shot(page, `${tag}-assistant-fix`, mode, width);
 				}
 				const close = page.getByRole("button", { name: "Close assistant" });
 				if (await close.count()) await close.first().click();
+			}
+
+			if (run("panel") && mobile) {
+				await page.getByRole("button", { name: "Show side panel" }).click();
+				await page.waitForTimeout(400);
+				await page.getByRole("button", { name: "Expand orders" }).click();
+				await shot(page, `${tag}-panel`, mode, width);
+				await page.keyboard.press("Escape");
 			}
 
 			if (run("overview")) {

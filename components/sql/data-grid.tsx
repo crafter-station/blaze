@@ -320,10 +320,11 @@ export function DataGrid({
 					aria-rowcount={sortedRows.length + 1}
 					aria-colcount={ordered.length}
 					aria-multiselectable="true"
+					translate="no"
 					aria-activedescendant={focus ? `${gridId}-${focus.r}-${focus.c}` : undefined}
 					tabIndex={0}
 					onKeyDown={onKeyDown}
-					className="relative min-h-0 flex-1 overflow-auto overscroll-contain font-mono text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
+					className="relative min-h-0 flex-1 overflow-auto overscroll-contain font-mono text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring/50 focus-visible:ring-inset"
 				>
 					{/* Header */}
 					<div

@@ -141,7 +141,16 @@ export function AssistantPanel({
 		void ask({ mode: trigger.mode, sql: trigger.sql, error: trigger.error });
 	}, [trigger, enabled, ask]);
 
-	useEffect(() => () => abortRef.current?.abort(), []);
+	// Closing the panel stops the answer. Forgetting the handled trigger as well means a
+	// remount (React's dev double-mount, or reopening the sheet) asks again instead of
+	// leaving a request that was just aborted.
+	useEffect(
+		() => () => {
+			abortRef.current?.abort();
+			lastNonce.current = null;
+		},
+		[],
+	);
 
 	function submit() {
 		if (status === "streaming") return;
@@ -448,7 +457,10 @@ function CodeBlock({
 }) {
 	return (
 		<div className="overflow-hidden rounded-lg border border-border">
-			<pre className="max-h-72 overflow-auto bg-[var(--code-background)] px-3 py-2.5 font-mono text-[0.75rem] leading-relaxed">
+			<pre
+				translate="no"
+				className="max-h-72 overflow-auto bg-[var(--code-background)] px-3 py-2.5 font-mono text-[0.75rem] leading-relaxed"
+			>
 				{sql}
 			</pre>
 			{complete && sql.trim() && (

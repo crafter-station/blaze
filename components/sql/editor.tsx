@@ -181,6 +181,7 @@ export function SqlCodeEditor({
 	error,
 	apiRef,
 	label,
+	wrap = false,
 }: {
 	value: string;
 	onChange: (value: string) => void;
@@ -190,6 +191,8 @@ export function SqlCodeEditor({
 	error: EditorError | null;
 	apiRef: RefObject<EditorApi | null>;
 	label: string;
+	/** Soft-wrap long lines; on narrow screens horizontal scrolling hides most of a query. */
+	wrap?: boolean;
 }) {
 	const viewRef = useRef<EditorView | null>(null);
 
@@ -207,8 +210,9 @@ export function SqlCodeEditor({
 			theme,
 			syntaxHighlighting(highlight),
 			currentStatement(engine),
+			...(wrap ? [EditorView.lineWrapping] : []),
 			placeholder("Write SQL. Ctrl+Enter runs the statement under the cursor."),
-			EditorView.contentAttributes.of({ "aria-label": label }),
+			EditorView.contentAttributes.of({ "aria-label": label, translate: "no" }),
 			Prec.highest(
 				keymap.of([
 					{ key: "Mod-Enter", run: call("run") },
@@ -223,7 +227,7 @@ export function SqlCodeEditor({
 			),
 			keymap.of([indentWithTab]),
 		];
-	}, [engine, snapshot, handlers, label]);
+	}, [engine, snapshot, handlers, label, wrap]);
 
 	useEffect(() => {
 		apiRef.current = {

@@ -79,8 +79,8 @@ export async function tableDdlAction(
 /**
  * Run the statements the editor split out, in order, on one connection.
  *
- * No keyword filtering, same as `runQueryAction`: it is the tenant's own database and
- * DROP TABLE is a legitimate thing to want. The console asks for confirmation before
+ * No keyword filtering: it is the tenant's own database and DROP TABLE is a legitimate
+ * thing to want, and blocking statements by pattern would only look like safety. The console asks for confirmation before
  * destructive statements; that is a UX guard, and the role's grants remain the boundary.
  */
 export async function runSqlAction(

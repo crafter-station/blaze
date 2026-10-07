@@ -679,6 +679,11 @@ export function SqlConsole(props: ConsoleProps) {
 	const [assistantOpen, setAssistantOpen] = useState(false);
 	const [assistantTrigger, setAssistantTrigger] = useState<AssistantTrigger | null>(null);
 
+	// A closed panel has no pending request; reopening it must not replay the last one.
+	useEffect(() => {
+		if (!assistantOpen) setAssistantTrigger(null);
+	}, [assistantOpen]);
+
 	const askClaude = useCallback((mode: AssistantTrigger["mode"], sql?: string, error?: string) => {
 		setAssistantOpen(true);
 		setAssistantTrigger({ mode, sql, error, nonce: Date.now() });
@@ -1019,9 +1024,18 @@ export function SqlConsole(props: ConsoleProps) {
 			trigger={assistantTrigger}
 			getEditorSql={() => apiRef.current?.getDoc() ?? ""}
 			getStatementSql={statementText}
-			onInsert={(sql) => apiRef.current?.insert(sql)}
-			onReplace={(sql) => apiRef.current?.replaceAll(`${sql}\n`)}
-			onOpenTab={(sql) => openTab(`${sql}\n`, "From Claude")}
+			onInsert={(sql) => {
+				apiRef.current?.insert(sql);
+				if (!desktop) setAssistantOpen(false);
+			}}
+			onReplace={(sql) => {
+				if (!desktop) setAssistantOpen(false);
+				apiRef.current?.replaceAll(`${sql}\n`);
+			}}
+			onOpenTab={(sql) => {
+				if (!desktop) setAssistantOpen(false);
+				openTab(`${sql}\n`, "From Claude");
+			}}
 			onClose={() => setAssistantOpen(false)}
 			className="h-full"
 		/>
@@ -1040,224 +1054,227 @@ export function SqlConsole(props: ConsoleProps) {
 				)}
 
 				<div className="flex min-w-0 flex-1 flex-col">
-					{/* Tab strip */}
-					<div className="flex h-10 shrink-0 items-center gap-1 border-border border-b bg-background pr-2 pl-1.5">
-						<Button
-							variant="ghost"
-							size="icon-sm"
-							onClick={() => (desktop ? setExplorerOpen((v) => !v) : setExplorerSheet(true))}
-							aria-label={desktop && explorerOpen ? "Hide side panel" : "Show side panel"}
-							title={desktop && explorerOpen ? "Hide side panel" : "Show side panel"}
-						>
-							{desktop && explorerOpen ? <PanelLeftClose /> : <PanelLeft />}
-						</Button>
-						<div
-							role="tablist"
-							aria-label="Queries"
-							className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
-						>
-							{tabs.map((tab) => {
-								const selected = tab.id === active.id;
-								return (
-									<div
-										key={tab.id}
-										className={cn(
-											"group/tab relative flex h-8 shrink-0 items-center rounded-md text-[0.8125rem] transition-colors",
-											selected
-												? "bg-accent text-foreground"
-												: "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-										)}
-									>
-										<button
-											type="button"
-											role="tab"
-											aria-selected={selected}
-											onClick={() => setActiveId(tab.id)}
-											onAuxClick={(e) => e.button === 1 && closeTab(tab.id)}
-											className="flex h-full max-w-[180px] items-center gap-1.5 rounded-md pr-1 pl-2.5 focus-visible:outline-2 focus-visible:outline-ring"
-										>
-											{pending?.tabId === tab.id && (
-												<Loader2 className="size-3 animate-spin motion-reduce:animate-none" />
-											)}
-											{tab.savedId && <Bookmark className="size-3 shrink-0" aria-hidden="true" />}
-											<span className="truncate">{tab.title}</span>
-											{tab.savedId && tab.savedSql !== tab.sql && (
-												<span
-													className="size-1.5 shrink-0 rounded-full bg-foreground/50"
-													title="Unsaved changes"
-												>
-													<span className="sr-only">(unsaved changes)</span>
-												</span>
-											)}
-										</button>
-										<button
-											type="button"
-											onClick={() => closeTab(tab.id)}
-											aria-label={`Close ${tab.title}`}
-											className={cn(
-												"mr-1 flex size-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-background/60 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring",
-												!selected &&
-													"opacity-0 group-hover/tab:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100",
-											)}
-										>
-											<X className="size-3" />
-										</button>
-										{selected && (
-											<span
-												aria-hidden="true"
-												className="absolute inset-x-2 -bottom-[5px] h-0.5 rounded-full bg-brand"
-											/>
-										)}
-									</div>
-								);
-							})}
+					{/* Tabs and toolbar stay reachable while the page scrolls on small screens. */}
+					<div className="sticky top-14 z-20 lg:static">
+						{/* Tab strip */}
+						<div className="flex h-10 shrink-0 items-center gap-1 border-border border-b bg-background pr-2 pl-1.5">
 							<Button
 								variant="ghost"
 								size="icon-sm"
-								onClick={() => openTab("")}
-								aria-label="New query tab"
-								title="New query tab"
+								onClick={() => (desktop ? setExplorerOpen((v) => !v) : setExplorerSheet(true))}
+								aria-label={desktop && explorerOpen ? "Hide side panel" : "Show side panel"}
+								title={desktop && explorerOpen ? "Hide side panel" : "Show side panel"}
 							>
-								<Plus />
+								{desktop && explorerOpen ? <PanelLeftClose /> : <PanelLeft />}
 							</Button>
+							<div
+								role="tablist"
+								aria-label="Queries"
+								className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
+							>
+								{tabs.map((tab) => {
+									const selected = tab.id === active.id;
+									return (
+										<div
+											key={tab.id}
+											className={cn(
+												"group/tab relative flex h-8 shrink-0 items-center rounded-md text-[0.8125rem] transition-colors",
+												selected
+													? "bg-accent text-foreground"
+													: "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+											)}
+										>
+											<button
+												type="button"
+												role="tab"
+												aria-selected={selected}
+												onClick={() => setActiveId(tab.id)}
+												onAuxClick={(e) => e.button === 1 && closeTab(tab.id)}
+												className="flex h-full max-w-[180px] items-center gap-1.5 rounded-md pr-1 pl-2.5 focus-visible:outline-2 focus-visible:outline-ring"
+											>
+												{pending?.tabId === tab.id && (
+													<Loader2 className="size-3 animate-spin motion-reduce:animate-none" />
+												)}
+												{tab.savedId && <Bookmark className="size-3 shrink-0" aria-hidden="true" />}
+												<span className="truncate">{tab.title}</span>
+												{tab.savedId && tab.savedSql !== tab.sql && (
+													<span
+														className="size-1.5 shrink-0 rounded-full bg-foreground/50"
+														title="Unsaved changes"
+													>
+														<span className="sr-only">(unsaved changes)</span>
+													</span>
+												)}
+											</button>
+											<button
+												type="button"
+												onClick={() => closeTab(tab.id)}
+												aria-label={`Close ${tab.title}`}
+												className={cn(
+													"mr-1 flex size-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-background/60 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring",
+													!selected &&
+														"opacity-0 group-hover/tab:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100",
+												)}
+											>
+												<X className="size-3" />
+											</button>
+											{selected && (
+												<span
+													aria-hidden="true"
+													className="absolute inset-x-2 -bottom-[5px] h-0.5 rounded-full bg-brand"
+												/>
+											)}
+										</div>
+									);
+								})}
+								<Button
+									variant="ghost"
+									size="icon-sm"
+									onClick={() => openTab("")}
+									aria-label="New query tab"
+									title="New query tab"
+								>
+									<Plus />
+								</Button>
+							</div>
 						</div>
-					</div>
 
-					{/* Toolbar */}
-					<div className="@container flex h-11 shrink-0 items-center gap-1 overflow-hidden border-border border-b bg-card px-2">
-						<div className="flex items-center">
-							<Button
-								size="sm"
-								onClick={() => handlers.current.run()}
-								disabled={!!pending}
-								className="rounded-r-none"
-								title={`Run statement at cursor or selection (${mod}Enter)`}
-							>
-								{isPending ? (
-									<Loader2
-										className="animate-spin motion-reduce:animate-none"
-										data-icon="inline-start"
-									/>
-								) : (
-									<Play data-icon="inline-start" />
-								)}
-								{isPending ? "Running…" : "Run"}
-							</Button>
-							<DropdownMenu>
-								<DropdownMenuTrigger asChild>
-									<Button
-										size="icon-sm"
-										disabled={!!pending}
-										className="rounded-l-none border-l border-l-black/15"
-										aria-label="More run options"
-									>
-										<ChevronDown />
-									</Button>
-								</DropdownMenuTrigger>
-								<DropdownMenuContent align="start" className="min-w-60">
-									<DropdownMenuItem onSelect={() => handlers.current.run()}>
-										Run statement or selection
-										<DropdownMenuShortcut>{mod}Enter</DropdownMenuShortcut>
-									</DropdownMenuItem>
-									<DropdownMenuItem onSelect={() => handlers.current.runAll()}>
-										Run all statements
-										<DropdownMenuShortcut>⇧{mod}Enter</DropdownMenuShortcut>
-									</DropdownMenuItem>
-								</DropdownMenuContent>
-							</DropdownMenu>
-						</div>
-						<div className="flex items-center">
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={() => explain(false)}
-								disabled={!!pending}
-								className="rounded-r-none"
-								title={`Explain the statement at the cursor (⇧${mod}E)`}
-								aria-label="Explain statement"
-							>
-								<Network data-icon="inline-start" />
-								<span className="hidden @lg:inline">Explain</span>
-							</Button>
-							{supportsAnalyze(engine) && (
+						{/* Toolbar */}
+						<div className="@container flex h-11 shrink-0 items-center gap-1 overflow-hidden border-border border-b bg-card px-2">
+							<div className="flex items-center">
+								<Button
+									size="sm"
+									onClick={() => handlers.current.run()}
+									disabled={!!pending}
+									className="rounded-r-none"
+									title={`Run statement at cursor or selection (${mod}Enter)`}
+								>
+									{isPending ? (
+										<Loader2
+											className="animate-spin motion-reduce:animate-none"
+											data-icon="inline-start"
+										/>
+									) : (
+										<Play data-icon="inline-start" />
+									)}
+									{isPending ? "Running…" : "Run"}
+								</Button>
 								<DropdownMenu>
 									<DropdownMenuTrigger asChild>
 										<Button
-											variant="ghost"
 											size="icon-sm"
 											disabled={!!pending}
-											className="-ml-0.5 rounded-l-none"
-											aria-label="More explain options"
+											className="rounded-l-none border-l border-l-black/15"
+											aria-label="More run options"
 										>
 											<ChevronDown />
 										</Button>
 									</DropdownMenuTrigger>
-									<DropdownMenuContent align="start" className="min-w-64">
-										<DropdownMenuItem onSelect={() => explain(false)}>
-											<Network className="text-muted-foreground" />
-											Explain (plan only)
-											<DropdownMenuShortcut>⇧{mod}E</DropdownMenuShortcut>
+									<DropdownMenuContent align="start" className="min-w-60">
+										<DropdownMenuItem onSelect={() => handlers.current.run()}>
+											Run statement or selection
+											<DropdownMenuShortcut>{mod}Enter</DropdownMenuShortcut>
 										</DropdownMenuItem>
-										<DropdownMenuItem onSelect={() => explain(true)}>
-											<Gauge className="text-muted-foreground" />
-											Explain with ANALYZE (runs it)
+										<DropdownMenuItem onSelect={() => handlers.current.runAll()}>
+											Run all statements
+											<DropdownMenuShortcut>⇧{mod}Enter</DropdownMenuShortcut>
 										</DropdownMenuItem>
 									</DropdownMenuContent>
 								</DropdownMenu>
-							)}
+							</div>
+							<div className="flex items-center">
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={() => explain(false)}
+									disabled={!!pending}
+									className="rounded-r-none"
+									title={`Explain the statement at the cursor (⇧${mod}E)`}
+									aria-label="Explain statement"
+								>
+									<Network data-icon="inline-start" />
+									<span className="hidden @lg:inline">Explain</span>
+								</Button>
+								{supportsAnalyze(engine) && (
+									<DropdownMenu>
+										<DropdownMenuTrigger asChild>
+											<Button
+												variant="ghost"
+												size="icon-sm"
+												disabled={!!pending}
+												className="-ml-0.5 rounded-l-none"
+												aria-label="More explain options"
+											>
+												<ChevronDown />
+											</Button>
+										</DropdownMenuTrigger>
+										<DropdownMenuContent align="start" className="min-w-64">
+											<DropdownMenuItem onSelect={() => explain(false)}>
+												<Network className="text-muted-foreground" />
+												Explain (plan only)
+												<DropdownMenuShortcut>⇧{mod}E</DropdownMenuShortcut>
+											</DropdownMenuItem>
+											<DropdownMenuItem onSelect={() => explain(true)}>
+												<Gauge className="text-muted-foreground" />
+												Explain with ANALYZE (runs it)
+											</DropdownMenuItem>
+										</DropdownMenuContent>
+									</DropdownMenu>
+								)}
+							</div>
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={format}
+								title="Format SQL (Shift+Alt+F)"
+								aria-label="Format SQL"
+							>
+								<WandSparkles data-icon="inline-start" />
+								<span className="hidden @2xl:inline">Format</span>
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={save}
+								title={`Save query (${mod}S)`}
+								aria-label={active.savedId ? "Save query" : "Save query as"}
+							>
+								<Save data-icon="inline-start" />
+								<span className="hidden @2xl:inline">{active.savedId ? "Save" : "Save as…"}</span>
+							</Button>
+							<p className="ml-auto hidden truncate text-[0.6875rem] text-muted-foreground @6xl:block">
+								Runs as <span className="font-mono text-foreground/80">{roleName}</span> ·{" "}
+								{timeoutSeconds}s timeout · first {maxRows} rows
+							</p>
+							<Button
+								variant={assistantOpen ? "secondary" : "ghost"}
+								size="sm"
+								className="ml-auto @6xl:ml-0"
+								onClick={() => setAssistantOpen((open) => !open)}
+								aria-pressed={assistantOpen}
+								aria-label="Ask Claude"
+								title={aiEnabled ? "Ask Claude" : "Ask Claude (not configured on this server)"}
+							>
+								<Sparkles
+									data-icon="inline-start"
+									className={aiEnabled ? "text-brand-text" : undefined}
+								/>
+								<span className="hidden @xl:inline">Ask Claude</span>
+							</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								className="text-muted-foreground"
+								onClick={() => setPaletteOpen(true)}
+								aria-label="Open command palette"
+							>
+								<CommandIcon data-icon="inline-start" />
+								<span className="hidden @3xl:inline">Commands</span>
+								<kbd className="ml-1 hidden rounded-sm bg-muted px-1 font-sans text-[0.6875rem] @3xl:inline">
+									{mod}K
+								</kbd>
+							</Button>
 						</div>
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={format}
-							title="Format SQL (Shift+Alt+F)"
-							aria-label="Format SQL"
-						>
-							<WandSparkles data-icon="inline-start" />
-							<span className="hidden @2xl:inline">Format</span>
-						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={save}
-							title={`Save query (${mod}S)`}
-							aria-label={active.savedId ? "Save query" : "Save query as"}
-						>
-							<Save data-icon="inline-start" />
-							<span className="hidden @2xl:inline">{active.savedId ? "Save" : "Save as…"}</span>
-						</Button>
-						<p className="ml-auto hidden truncate text-[0.6875rem] text-muted-foreground @6xl:block">
-							Runs as <span className="font-mono text-foreground/80">{roleName}</span> ·{" "}
-							{timeoutSeconds}s timeout · first {maxRows} rows
-						</p>
-						<Button
-							variant={assistantOpen ? "secondary" : "ghost"}
-							size="sm"
-							className="ml-auto @6xl:ml-0"
-							onClick={() => setAssistantOpen((open) => !open)}
-							aria-pressed={assistantOpen}
-							aria-label="Ask Claude"
-							title={aiEnabled ? "Ask Claude" : "Ask Claude (not configured on this server)"}
-						>
-							<Sparkles
-								data-icon="inline-start"
-								className={aiEnabled ? "text-brand-text" : undefined}
-							/>
-							<span className="hidden @xl:inline">Ask Claude</span>
-						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							className="text-muted-foreground"
-							onClick={() => setPaletteOpen(true)}
-							aria-label="Open command palette"
-						>
-							<CommandIcon data-icon="inline-start" />
-							<span className="hidden @3xl:inline">Commands</span>
-							<kbd className="ml-1 hidden rounded-sm bg-muted px-1 font-sans text-[0.6875rem] @3xl:inline">
-								{mod}K
-							</kbd>
-						</Button>
 					</div>
 
 					<div ref={splitRef} className="flex min-h-0 flex-1 flex-col">
@@ -1278,6 +1295,7 @@ export function SqlConsole(props: ConsoleProps) {
 								error={editorError}
 								apiRef={apiRef}
 								label={`SQL editor, ${active.title}`}
+								wrap={!desktop}
 							/>
 						</div>
 

@@ -85,6 +85,8 @@ export function ExplainView({
 
 	const tree = state.tree;
 	const metric = tree.analyzed ? "time" : "cost";
+	// SQLite's EXPLAIN QUERY PLAN has no costs: show the plan's shape without empty bars.
+	const weighted = hasWeight(tree.root);
 
 	return (
 		<div className="flex min-h-full flex-col">
@@ -158,15 +160,26 @@ export function ExplainView({
 				</pre>
 			) : (
 				<div className="flex-1 overflow-auto p-4">
-					<ul className="space-y-1.5">
-						<PlanNodeView node={tree.root} metric={metric} analyzed={tree.analyzed} />
+					<ul className="space-y-1.5" translate="no">
+						<PlanNodeView
+							node={tree.root}
+							metric={metric}
+							analyzed={tree.analyzed}
+							weighted={weighted}
+						/>
 					</ul>
 					<p className="mt-4 text-[0.6875rem] text-muted-foreground">
-						Share is this step's own {metric === "time" ? "time" : "cost"}, excluding the steps
-						beneath it.
-						{!tree.analyzed &&
-							canAnalyze &&
-							" Estimates come from table statistics; ANALYZE measures the real thing."}
+						{weighted ? (
+							<>
+								Share is this step's own {metric === "time" ? "time" : "cost"}, excluding the steps
+								beneath it.
+								{!tree.analyzed &&
+									canAnalyze &&
+									" Estimates come from table statistics; ANALYZE measures the real thing."}
+							</>
+						) : (
+							"This engine reports the plan's shape without costs. SCAN means every row is read; SEARCH uses an index."
+						)}
 					</p>
 				</div>
 			)}
@@ -186,10 +199,12 @@ function PlanNodeView({
 	node,
 	metric,
 	analyzed,
+	weighted,
 }: {
 	node: PlanNode;
 	metric: "time" | "cost";
 	analyzed: boolean;
+	weighted: boolean;
 }) {
 	const [open, setOpen] = useState(node.heat === "hot");
 	const percent = Math.round(node.share * 100);
@@ -255,25 +270,30 @@ function PlanNodeView({
 								cost {node.selfCost.toLocaleString("en-US", { maximumFractionDigits: 2 })}
 							</span>
 						)}
-						<span
-							className="flex w-[72px] items-center gap-1.5"
-							title={`${percent}% of the plan's ${metric}`}
-						>
-							<span className="h-1 flex-1 overflow-hidden rounded-full bg-foreground/[0.08]">
+						{weighted && (
+							<span
+								className="flex w-[72px] items-center gap-1.5"
+								title={`${percent}% of the plan's ${metric}`}
+							>
+								<span className="h-1 flex-1 overflow-hidden rounded-full bg-foreground/[0.08]">
+									<span
+										className={cn(
+											"block h-full rounded-full",
+											node.heat === "hot" ? "bg-warning" : "bg-foreground/45",
+										)}
+										style={{ width: `${Math.max(percent, node.share > 0 ? 3 : 0)}%` }}
+									/>
+								</span>
 								<span
 									className={cn(
-										"block h-full rounded-full",
-										node.heat === "hot" ? "bg-warning" : "bg-foreground/45",
+										"w-7 text-right",
+										node.heat === "hot" && "font-medium text-warning",
 									)}
-									style={{ width: `${Math.max(percent, node.share > 0 ? 3 : 0)}%` }}
-								/>
+								>
+									{percent}%
+								</span>
 							</span>
-							<span
-								className={cn("w-7 text-right", node.heat === "hot" && "font-medium text-warning")}
-							>
-								{percent}%
-							</span>
-						</span>
+						)}
 					</div>
 				</div>
 				{node.warnings.length > 0 && (
@@ -300,10 +320,20 @@ function PlanNodeView({
 			{node.children.length > 0 && (
 				<ul className="mt-1.5 ml-3 space-y-1.5 border-border border-l pl-3">
 					{node.children.map((child) => (
-						<PlanNodeView key={child.id} node={child} metric={metric} analyzed={analyzed} />
+						<PlanNodeView
+							key={child.id}
+							node={child}
+							metric={metric}
+							analyzed={analyzed}
+							weighted={weighted}
+						/>
 					))}
 				</ul>
 			)}
 		</li>
 	);
+}
+
+function hasWeight(node: PlanNode): boolean {
+	return node.share > 0 || node.children.some(hasWeight);
 }

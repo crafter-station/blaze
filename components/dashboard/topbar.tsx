@@ -81,7 +81,10 @@ export function TopBar({
 							const last = index === trail.length - 1;
 							return (
 								<Fragment key={crumb.label}>
-									<li aria-hidden="true" className="text-muted-foreground/50">
+									<li
+										aria-hidden="true"
+										className={cn("text-muted-foreground/50", !last && "hidden sm:block")}
+									>
 										<ChevronRight className="size-3.5" />
 									</li>
 									<li className={cn("min-w-0", !last && "hidden sm:block")}>

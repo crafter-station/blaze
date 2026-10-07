@@ -3,6 +3,7 @@ import type { Database, Instance } from "@/lib/control/schema";
 import { LIMITS } from "@/lib/limits";
 import { connectTenant } from "@/lib/tenant-db";
 import { type PlanFormat, planFormat } from "./explain";
+import { splitStatements } from "./split";
 import type { SqlEngine } from "./types";
 
 /**
@@ -27,6 +28,11 @@ export async function explainStatement(
 	const engine = record.engine as SqlEngine;
 	const sql = statement.trim().replace(/;+\s*$/, "");
 	if (!sql) return { ok: false, error: "Nothing to explain" };
+	// One statement only: the driver would happily run a second one after the EXPLAIN,
+	// outside the plan and (for ANALYZE) after the rollback point.
+	if (splitStatements(sql, engine).length > 1) {
+		return { ok: false, error: "EXPLAIN takes a single statement. Select just one and try again." };
+	}
 	const doAnalyze = analyze && engine !== "libsql";
 
 	const prefix =

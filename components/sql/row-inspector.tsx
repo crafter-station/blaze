@@ -81,7 +81,10 @@ export function RowInspector({
 					<X />
 				</Button>
 			</div>
-			<dl className="min-h-0 flex-1 divide-y divide-border overflow-y-auto overscroll-contain">
+			<dl
+				translate="no"
+				className="min-h-0 flex-1 divide-y divide-border overflow-y-auto overscroll-contain"
+			>
 				{columns.map((column, i) => {
 					const value = row[i];
 					const isNull = value === null || value === undefined;
