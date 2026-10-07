@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, CircleAlert, Eye, Table2 } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { EmptyState, PageHeader, Panel } from "@/components/console/page";
 import { StatusPill } from "@/components/dashboard/status-pill";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,8 @@ export default async function TablesPage({
 
 	const record = await getOwnedDatabase(user.id, id);
 	if (!record) notFound();
+	// Redis has keys, not tables: its Browser takes this slot.
+	if (record.engine === "redis") redirect(`/databases/${id}/browser`);
 
 	let tables: TableRef[] = [];
 	let listError: string | null = null;

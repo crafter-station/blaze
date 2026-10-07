@@ -1,6 +1,7 @@
 import {
 	Activity,
 	Database,
+	FolderTree,
 	Gauge,
 	KeyRound,
 	LayoutGrid,
@@ -44,7 +45,10 @@ export const WORKSPACE_NAV: NavItem[] = [
 export function databaseTools(database: Pick<SidebarDatabase, "id" | "engine">): NavItem[] {
 	const base = `/databases/${database.id}`;
 	if (database.engine === "redis") {
-		return [{ href: `${base}/console`, label: "Console", icon: SquareTerminal }];
+		return [
+			{ href: `${base}/browser`, label: "Browser", icon: FolderTree },
+			{ href: `${base}/console`, label: "Console", icon: SquareTerminal },
+		];
 	}
 	return [
 		...(ENGINE_CONFIG[database.engine].hasSql

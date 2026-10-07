@@ -56,3 +56,109 @@ export const MODULE_LABEL: Record<string, string> = {
 	bf: "Probabilistic",
 	vectorset: "Vector sets",
 };
+
+/* ------------------------------------------------------------------ *
+ * Key browser
+ * ------------------------------------------------------------------ */
+
+export interface ScanPage {
+	keys: { key: string; name: string; type: string; ttl: number }[];
+	/** Cursor to continue from; "0" when the keyspace has been fully walked. */
+	cursor: string;
+	/** Keys examined by SCAN for this page (matching or not). */
+	scanned: number;
+}
+
+export interface HealthSnapshot {
+	usedMemory: number;
+	/** The quota the database is held to: `maxmemory`, or blaze's limit if unset. */
+	maxMemory: number;
+	peakMemory: number | null;
+	keys: number;
+	hits: number;
+	misses: number;
+	clients: number | null;
+	server: ServerInfo;
+	at: number;
+}
+
+export interface KeyMeta {
+	key: string;
+	name: string;
+	/** `none` when the key does not exist (any more). */
+	type: string;
+	/** Milliseconds; -1 no expiry, -2 gone. */
+	ttl: number;
+	memory: number | null;
+	encoding: string | null;
+	/** Elements, bytes or entries, depending on the type. */
+	length: number | null;
+}
+
+/** A bulk value as the browser shows and edits it. */
+export interface ValueText {
+	/** Text, or the escaped form of binary data. */
+	text: string;
+	binary?: boolean;
+	/** Hex of the (possibly truncated) bytes, only for binary values. */
+	hex?: string;
+	/** Byte length of the full value. */
+	bytes: number;
+	truncated?: boolean;
+	/** Transport form of the exact bytes (see keys.ts), for edits that must name this value. */
+	ref: string;
+}
+
+export interface StreamGroup {
+	name: string;
+	consumers: number;
+	pending: number;
+	lastDeliveredId: string;
+	lag: number | null;
+	entriesRead: number | null;
+}
+
+export type KeyValue =
+	| { kind: "missing" }
+	| { kind: "string"; value: ValueText }
+	| { kind: "list"; items: { index: number; value: ValueText }[]; offset: number; total: number }
+	| {
+			kind: "hash";
+			entries: { field: ValueText; value: ValueText }[];
+			cursor: string;
+			total: number;
+	  }
+	| { kind: "set"; members: ValueText[]; cursor: string; total: number }
+	| {
+			kind: "zset";
+			members: { member: ValueText; score: string; rank: number }[];
+			offset: number;
+			total: number;
+	  }
+	| {
+			kind: "stream";
+			entries: { id: string; fields: [string, string][] }[];
+			groups: StreamGroup[];
+			length: number;
+			firstId: string | null;
+			lastId: string | null;
+			/** Id to page older entries from, when there are more. */
+			before: string | null;
+	  }
+	| { kind: "json"; json: string | null; bytes: number; truncated?: boolean; unavailable?: string }
+	| { kind: "other"; type: string; command: string };
+
+export interface KeyDetails {
+	meta: KeyMeta;
+	value: KeyValue;
+}
+
+/** How far into a value to read. */
+export interface ValuePage {
+	/** Lists and sorted sets: element offset. */
+	offset?: number;
+	/** Hashes and sets: SCAN cursor. */
+	cursor?: string;
+	/** Streams: read entries with ids strictly below this one. */
+	before?: string;
+}

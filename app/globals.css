@@ -148,6 +148,19 @@
 	--shadow-color: #18120d14;
 	--code-background: #f4f4f5;
 
+	/*
+	 * Redis value types in the key browser. Muted, distinct hues read as categories rather
+	 * than states, and stay clear of the brand amber, which keeps meaning "selected".
+	 */
+	--type-string: #2f6db0;
+	--type-list: #2b7d58;
+	--type-hash: #7a52b3;
+	--type-set: #6f7a1e;
+	--type-zset: #b3415f;
+	--type-stream: #1f7f8f;
+	--type-json: #94700f;
+	--type-other: #67676f;
+
 	--radius: 0.5rem;
 }
 
@@ -204,6 +217,15 @@
 
 	--shadow-color: #00000066;
 	--code-background: #0e0e10;
+
+	--type-string: #79aee6;
+	--type-list: #6cc49b;
+	--type-hash: #b49ae6;
+	--type-set: #b8c46a;
+	--type-zset: #e98aa3;
+	--type-stream: #6cc6d4;
+	--type-json: #e0c46a;
+	--type-other: #8b8b93;
 }
 
 @layer base {
