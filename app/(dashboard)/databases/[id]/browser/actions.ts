@@ -1,7 +1,16 @@
 "use server";
 
+import { z } from "zod";
 import { describeRedisError, ownedRedisDatabase } from "@/lib/redis/access";
 import { browse, health, keyDetails, memoryUsage, scanKeys } from "@/lib/redis/browse";
+import {
+	applyEdit,
+	deletePattern,
+	EditConflict,
+	type EditResult,
+	editOp,
+	previewPattern,
+} from "@/lib/redis/edit";
 import { FILTERABLE_TYPES } from "@/lib/redis/keys";
 import type { Failure, HealthSnapshot, KeyDetails, ScanPage, ValuePage } from "@/lib/redis/types";
 
@@ -79,5 +88,97 @@ export async function keyDetailsAction(
 		return { ok: true, details };
 	} catch (error) {
 		return describeRedisError(error, "Could not read the key");
+	}
+}
+
+/* ------------------------------------------------------------------ *
+ * Writes
+ * ------------------------------------------------------------------ */
+
+function editFailure(error: unknown, fallback: string): Failure {
+	if (error instanceof EditConflict) return { ok: false, error: error.message };
+	if (error instanceof SyntaxError) return { ok: false, error: `Not valid JSON: ${error.message}` };
+	return describeRedisError(error, fallback);
+}
+
+export async function editKeyAction(
+	databaseId: string,
+	input: unknown,
+): Promise<Ok<EditResult> | Failure> {
+	const owned = await ownedRedisDatabase(databaseId);
+	if ("error" in owned) return owned;
+	const parsed = editOp.safeParse(input);
+	if (!parsed.success) {
+		return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid change" };
+	}
+	try {
+		const result = await browse(owned.record, (conn) => applyEdit(conn, parsed.data));
+		return { ok: true, ...result };
+	} catch (error) {
+		return editFailure(error, "Could not save the change");
+	}
+}
+
+const patternSchema = z.string().trim().min(1).max(512);
+
+export async function previewPatternAction(
+	databaseId: string,
+	pattern: string,
+): Promise<Ok<{ count: number; sample: string[]; complete: boolean }> | Failure> {
+	const owned = await ownedRedisDatabase(databaseId);
+	if ("error" in owned) return owned;
+	const parsed = patternSchema.safeParse(pattern);
+	if (!parsed.success) return { ok: false, error: "Enter a pattern, such as cache:*" };
+	try {
+		return {
+			ok: true,
+			...(await browse(owned.record, (conn) => previewPattern(conn, parsed.data))),
+		};
+	} catch (error) {
+		return describeRedisError(error, "Could not count matching keys");
+	}
+}
+
+/**
+ * Delete every key matching a pattern. The browser only offers this after a preview of
+ * the same pattern; `confirmed` repeats the pattern the user saw counted, so a stale
+ * dialog cannot delete a different set.
+ */
+export async function deletePatternAction(
+	databaseId: string,
+	pattern: string,
+	confirmed: string,
+): Promise<Ok<{ deleted: number; complete: boolean }> | Failure> {
+	const owned = await ownedRedisDatabase(databaseId);
+	if ("error" in owned) return owned;
+	const parsed = patternSchema.safeParse(pattern);
+	if (!parsed.success || confirmed !== parsed.data) {
+		return { ok: false, error: "Preview the pattern before deleting." };
+	}
+	try {
+		return {
+			ok: true,
+			...(await browse(owned.record, (conn) => deletePattern(conn, parsed.data))),
+		};
+	} catch (error) {
+		return describeRedisError(error, "Could not delete the keys");
+	}
+}
+
+/** FLUSHDB, only when the caller typed the database's name. */
+export async function flushDatabaseAction(
+	databaseId: string,
+	typedName: string,
+): Promise<Ok<object> | Failure> {
+	const owned = await ownedRedisDatabase(databaseId);
+	if ("error" in owned) return owned;
+	if (String(typedName) !== owned.record.name) {
+		return { ok: false, error: "Type the database name to confirm." };
+	}
+	try {
+		await browse(owned.record, (conn) => conn.callOk(["FLUSHDB", "ASYNC"]));
+		return { ok: true };
+	} catch (error) {
+		return describeRedisError(error, "Could not flush the database");
 	}
 }

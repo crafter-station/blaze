@@ -3,27 +3,42 @@
 import {
 	ClipboardCopy,
 	Clock,
+	Eraser,
 	FolderTree,
 	KeyRound,
 	List,
 	ListTree,
 	Loader2,
+	MoreHorizontal,
+	Plus,
 	RefreshCw,
 	Search,
 	SquareTerminal,
+	Trash2,
 	X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
+	deletePatternAction,
+	flushDatabaseAction,
 	healthAction,
 	keyDetailsAction,
 	memoryUsageAction,
+	previewPatternAction,
 	scanKeysAction,
 } from "@/app/(dashboard)/databases/[id]/browser/actions";
 import { useMediaQuery } from "@/components/console-shell/hooks";
 import { Button } from "@/components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
 	Select,
 	SelectContent,
@@ -41,10 +56,19 @@ import {
 import { formatBytes } from "@/lib/format";
 import { FILTERABLE_TYPES, formatTtl, inspectCommand, keyLabel, typeLabel } from "@/lib/redis/keys";
 import type { KeyEntry } from "@/lib/redis/tree";
-import type { HealthSnapshot, KeyDetails, KeyValue, ValuePage } from "@/lib/redis/types";
+import {
+	type HealthSnapshot,
+	hasJsonModule,
+	type KeyDetails,
+	type KeyValue,
+	type ValuePage,
+} from "@/lib/redis/types";
 import { cn } from "@/lib/utils";
+import { BulkDeleteDialog, FlushDialog } from "./edit-dialogs";
+import { type EditEvent, useEditor, useKeyEditing } from "./editing";
 import { HealthBar } from "./health-bar";
 import { KeyTree, type TreeView } from "./key-tree";
+import { NewKeyDialog } from "./new-key-dialog";
 import { TypeBadge } from "./type-badge";
 import { CollectionValue, copyText, MissingValue, RawValue, StringValue } from "./value-view";
 
@@ -252,6 +276,19 @@ export function KeyBrowser({ databaseId, databaseName, suspended }: KeyBrowserPr
 					setDetailsError(result.friendly ?? result.error);
 					return;
 				}
+				const fresh = result.details.meta;
+				// Keep the list's type and TTL in step with what was just read.
+				setScan((s) =>
+					fresh.type === "none"
+						? s
+						: {
+								...s,
+								entries: s.entries.map((e) =>
+									e.key === fresh.key ? { ...e, type: fresh.type, ttl: fresh.ttl } : e,
+								),
+							},
+				);
+				if (fresh.memory !== null) setMemory((m) => ({ ...m, [fresh.key]: fresh.memory }));
 				setDetails((current) =>
 					append && current && current.meta.key === key
 						? { meta: result.details.meta, value: mergeValues(current.value, result.details.value) }
@@ -293,6 +330,55 @@ export function KeyBrowser({ databaseId, databaseName, suspended }: KeyBrowserPr
 		[router, pathname, searchParams],
 	);
 
+	/* ---------------- changes ---------------- */
+
+	const onEditEvent = useCallback(
+		(event: EditEvent) => {
+			void loadHealth();
+			switch (event.kind) {
+				case "updated":
+					if (selected === event.key) void loadDetails(event.key);
+					break;
+				case "deleted":
+					setScan((s) => ({ ...s, entries: s.entries.filter((e) => e.key !== event.key) }));
+					select(null);
+					break;
+				case "renamed":
+					setScan((s) => ({
+						...s,
+						entries: s.entries.map((e) =>
+							e.key === event.from ? { ...e, key: event.to, name: keyLabel(event.to) } : e,
+						),
+					}));
+					select(event.to);
+					break;
+				case "created":
+					setScan((s) => ({
+						...s,
+						entries: s.entries.some((e) => e.key === event.key)
+							? s.entries
+							: [
+									...s.entries,
+									{ key: event.key, name: keyLabel(event.key), type: event.type, ttl: event.ttl },
+								],
+					}));
+					select(event.key);
+					break;
+			}
+		},
+		[loadHealth, loadDetails, select, selected],
+	);
+
+	const editing = useKeyEditing({
+		databaseId,
+		details: details?.meta.key === selected ? details : null,
+		onEvent: onEditEvent,
+	});
+	const createKey = useEditor(databaseId, onEditEvent);
+	const [newKeyOpen, setNewKeyOpen] = useState(false);
+	const [bulkOpen, setBulkOpen] = useState(false);
+	const [flushOpen, setFlushOpen] = useState(false);
+
 	/* ---------------- layout ---------------- */
 
 	const done = scan.started && scan.cursor === "0";
@@ -301,6 +387,41 @@ export function KeyBrowser({ databaseId, databaseName, suspended }: KeyBrowserPr
 	const listPane = (
 		<div className="flex h-full min-h-0 flex-col">
 			<div className="flex shrink-0 flex-col gap-2 border-border border-b p-2">
+				<div className="flex items-center gap-1.5">
+					<Button
+						variant="outline"
+						size="sm"
+						className="flex-1"
+						onClick={() => setNewKeyOpen(true)}
+						disabled={suspended}
+					>
+						<Plus data-icon="inline-start" />
+						New key
+					</Button>
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button
+								variant="outline"
+								size="icon-sm"
+								aria-label="More key actions"
+								disabled={suspended}
+							>
+								<MoreHorizontal />
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end" className="min-w-56">
+							<DropdownMenuItem onSelect={() => setBulkOpen(true)}>
+								<Trash2 className="text-muted-foreground" />
+								Delete keys by pattern…
+							</DropdownMenuItem>
+							<DropdownMenuSeparator />
+							<DropdownMenuItem variant="destructive" onSelect={() => setFlushOpen(true)}>
+								<Eraser />
+								Flush database…
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
+				</div>
 				<label className="relative block">
 					<span className="sr-only">Filter keys by name or glob pattern</span>
 					<Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -476,6 +597,9 @@ export function KeyBrowser({ databaseId, databaseName, suspended }: KeyBrowserPr
 			onClose={() => select(null)}
 			onRefresh={() => void loadDetails(selected)}
 			onPage={(page, append) => void loadDetails(selected, page, append)}
+			actions={editing.actions}
+			rowAction={editing.rowAction}
+			valueToolbar={editing.valueToolbar}
 		/>
 	) : (
 		<NothingSelected
@@ -543,6 +667,69 @@ export function KeyBrowser({ databaseId, databaseName, suspended }: KeyBrowserPr
 					</Sheet>
 				</div>
 			)}
+
+			{editing.dialogs}
+			<NewKeyDialog
+				open={newKeyOpen}
+				jsonAvailable={health ? hasJsonModule(health.server) : true}
+				initialPrefix={filter && !/[*?[]]/.test(filter) && filter.endsWith(":") ? filter : ""}
+				onClose={() => setNewKeyOpen(false)}
+				onCreate={({ key, ttl, value }) =>
+					createKey({ op: "create", key, ttl, value }, (ref) => ({
+						kind: "created",
+						key: ref ?? key,
+						type: value.type === "json" ? "ReJSON-RL" : value.type,
+						ttl: ttl ? ttl * 1000 : -1,
+					}))
+				}
+			/>
+			<BulkDeleteDialog
+				open={bulkOpen}
+				initialPattern={pattern}
+				onClose={() => setBulkOpen(false)}
+				onPreview={async (p) => {
+					try {
+						const result = await previewPatternAction(databaseId, p);
+						return result.ok ? result : (result.friendly ?? result.error);
+					} catch {
+						return "Could not reach the server";
+					}
+				}}
+				onDelete={async (p) => {
+					try {
+						const result = await deletePatternAction(databaseId, p, p);
+						if (!result.ok) return result.friendly ?? result.error;
+						toast.success(
+							`Deleted ${result.deleted.toLocaleString()} ${result.deleted === 1 ? "key" : "keys"}`,
+						);
+						select(null);
+						void loadKeys(true);
+						void loadHealth();
+						return result;
+					} catch {
+						return "Could not reach the server";
+					}
+				}}
+			/>
+			<FlushDialog
+				open={flushOpen}
+				databaseName={databaseName}
+				keys={total}
+				onClose={() => setFlushOpen(false)}
+				onFlush={async (typed) => {
+					try {
+						const result = await flushDatabaseAction(databaseId, typed);
+						if (!result.ok) return result.friendly ?? result.error;
+						toast.success("Database flushed");
+						select(null);
+						void loadKeys(true);
+						void loadHealth();
+						return null;
+					} catch {
+						return "Could not reach the server";
+					}
+				}}
+			/>
 		</div>
 	);
 }
