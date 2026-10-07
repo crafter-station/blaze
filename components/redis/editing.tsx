@@ -67,7 +67,14 @@ export function useKeyEditing({
 	databaseId: string;
 	details: KeyDetails | null;
 	onEvent: (event: EditEvent) => void;
-}): { actions: ReactNode; rowAction?: RowAction; valueToolbar?: ReactNode; dialogs: ReactNode } {
+}): {
+	actions: ReactNode;
+	rowAction?: RowAction;
+	valueToolbar?: ReactNode;
+	/** For JSON documents: edit (or remove) the value at one path. */
+	editJsonPath?: (path: string, value: unknown) => void;
+	dialogs: ReactNode;
+} {
 	const edit = useEditor(databaseId, onEvent);
 	const [form, setForm] = useState<FormState | null>(null);
 	const [ttlOpen, setTtlOpen] = useState(false);
@@ -369,9 +376,70 @@ export function useKeyEditing({
 		}
 	}
 
+	if (value?.kind === "stream") {
+		rowAction = {
+			label: "View entry",
+			run: (i) => {
+				const entry = value.entries[i];
+				if (!entry) return;
+				setForm({
+					title: `Entry ${entry.id}`,
+					description: (
+						<pre className="mt-2 max-h-[40dvh] overflow-auto rounded-md border border-border bg-[var(--code-background)] px-3 py-2 font-mono text-foreground text-xs leading-relaxed">
+							{JSON.stringify(Object.fromEntries(entry.fields), null, 2)}
+						</pre>
+					),
+					fields: [],
+					submitLabel: "Close",
+					submit: async () => null,
+					remove: {
+						label: "Delete entry",
+						run: () => edit({ op: "stream.delete", key, id: entry.id }, updated),
+					},
+				});
+			},
+		};
+	}
+
+	let editJsonPath: ((path: string, value: unknown) => void) | undefined;
+	if (value?.kind === "json" && value.json !== null) {
+		editJsonPath = (path, current) =>
+			setForm({
+				title: path === "$" ? "Edit document" : `Edit ${path}`,
+				description: "Any JSON value. Saved with JSON.SET at this path.",
+				fields: [valueField(JSON.stringify(current, null, 2), "JSON")].map((f) => ({
+					...f,
+					validate: (text: string) => {
+						try {
+							JSON.parse(text);
+							return null;
+						} catch (error) {
+							return `Not valid JSON: ${(error as Error).message}`;
+						}
+					},
+				})),
+				submitLabel: "Save",
+				submit: (v) => edit({ op: "json.set", key, path, json: v.value }, updated),
+				remove:
+					path === "$"
+						? undefined
+						: { label: "Delete value", run: () => edit({ op: "json.delete", key, path }, updated) },
+			});
+	}
+
 	/* ---------------- strings ---------------- */
 
 	let valueToolbar: ReactNode;
+	if (value?.kind === "json" && value.json !== null && editJsonPath) {
+		const document = value.json;
+		const open = editJsonPath;
+		valueToolbar = (
+			<Button variant="ghost" size="xs" onClick={() => open("$", JSON.parse(document))}>
+				<Pencil data-icon="inline-start" />
+				Edit document
+			</Button>
+		);
+	}
 	if (value?.kind === "string") {
 		const editable = !value.value.binary && !value.value.truncated;
 		valueToolbar = (
@@ -485,5 +553,5 @@ export function useKeyEditing({
 		</>
 	);
 
-	return { actions, rowAction, valueToolbar, dialogs };
+	return { actions, rowAction, valueToolbar, editJsonPath, dialogs };
 }

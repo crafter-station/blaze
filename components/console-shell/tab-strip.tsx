@@ -145,7 +145,7 @@ export function SegmentedTabs<T extends string>({
 					aria-selected={value === item.id}
 					onClick={() => onChange(item.id)}
 					className={cn(
-						"flex h-7 flex-1 items-center justify-center gap-1.5 rounded-md text-xs transition-colors focus-visible:outline-2 focus-visible:outline-ring",
+						"flex h-7 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2 text-xs transition-colors focus-visible:outline-2 focus-visible:outline-ring",
 						value === item.id
 							? "bg-accent font-medium text-foreground"
 							: "text-muted-foreground hover:bg-accent/60 hover:text-foreground",

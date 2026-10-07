@@ -67,8 +67,10 @@ import { cn } from "@/lib/utils";
 import { BulkDeleteDialog, FlushDialog } from "./edit-dialogs";
 import { type EditEvent, useEditor, useKeyEditing } from "./editing";
 import { HealthBar } from "./health-bar";
+import { JsonValue } from "./json-view";
 import { KeyTree, type TreeView } from "./key-tree";
 import { NewKeyDialog } from "./new-key-dialog";
+import { StreamValue } from "./stream-view";
 import { TypeBadge } from "./type-badge";
 import { CollectionValue, copyText, MissingValue, RawValue, StringValue } from "./value-view";
 
@@ -600,6 +602,7 @@ export function KeyBrowser({ databaseId, databaseName, suspended }: KeyBrowserPr
 			actions={editing.actions}
 			rowAction={editing.rowAction}
 			valueToolbar={editing.valueToolbar}
+			editJsonPath={editing.editJsonPath}
 		/>
 	) : (
 		<NothingSelected
@@ -772,6 +775,7 @@ function KeyPanel({
 	actions,
 	rowAction,
 	valueToolbar,
+	editJsonPath,
 }: {
 	databaseId: string;
 	selected: string;
@@ -784,6 +788,7 @@ function KeyPanel({
 	actions?: ReactNode;
 	rowAction?: Parameters<typeof CollectionValue>[0]["rowAction"];
 	valueToolbar?: ReactNode;
+	editJsonPath?: (path: string, value: unknown) => void;
 }) {
 	const meta = details?.meta;
 	const name = keyLabel(selected);
@@ -907,6 +912,7 @@ function KeyPanel({
 					onPage={onPage}
 					rowAction={rowAction}
 					toolbar={valueToolbar}
+					editJsonPath={editJsonPath}
 				/>
 			)}
 		</section>
@@ -920,6 +926,7 @@ function ValueBody({
 	onPage,
 	rowAction,
 	toolbar,
+	editJsonPath,
 }: {
 	details: KeyDetails;
 	databaseId: string;
@@ -927,6 +934,7 @@ function ValueBody({
 	onPage: (page: ValuePage, append: boolean) => void;
 	rowAction?: Parameters<typeof CollectionValue>[0]["rowAction"];
 	toolbar?: ReactNode;
+	editJsonPath?: (path: string, value: unknown) => void;
 }) {
 	const { value, meta } = details;
 	switch (value.kind) {
@@ -945,6 +953,40 @@ function ValueBody({
 					loading={loading}
 					onPage={onPage}
 					rowAction={rowAction}
+					toolbar={toolbar}
+				/>
+			);
+		case "stream":
+			return (
+				<StreamValue
+					value={value}
+					label={`Stream ${meta.name}`}
+					loading={loading}
+					onPage={onPage}
+					rowAction={rowAction}
+					toolbar={toolbar}
+				/>
+			);
+		case "json":
+			if (value.json === null) {
+				return (
+					<RawValue
+						type={meta.type}
+						command={inspectCommand(meta.type, meta.key)}
+						databaseId={databaseId}
+						note={
+							value.unavailable ??
+							`This document is ${formatBytes(value.bytes)}, too large to show here. Read parts of it with JSON.GET and a path.`
+						}
+					/>
+				);
+			}
+			return (
+				<JsonValue
+					key={meta.key}
+					json={value.json}
+					bytes={value.bytes}
+					onEditPath={editJsonPath}
 					toolbar={toolbar}
 				/>
 			);
