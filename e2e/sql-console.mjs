@@ -257,6 +257,36 @@ for (const mode of modes) {
 				await page.keyboard.press("Escape");
 			}
 
+			if (run("assistant")) {
+				await page.getByRole("button", { name: "Ask Claude" }).first().click();
+				await page.waitForTimeout(300);
+				if ((await page.getByText("The assistant is not set up here").count()) > 0) {
+					check(true, `${tag}: assistant explains it is not configured`);
+					await shot(page, `${tag}-assistant-disabled`, mode, width);
+				} else {
+					await page.fill("#assistant-prompt", "Top 10 customers by revenue with their country");
+					await page.keyboard.press("Control+Enter");
+					await page.getByRole("button", { name: "Replace editor" }).first().waitFor({ timeout: 30_000 });
+					await page.waitForTimeout(300);
+					await shot(page, `${tag}-assistant-generate`, mode, width);
+					await page.getByRole("button", { name: "Replace editor" }).first().click();
+					await page.waitForTimeout(200);
+					const doc = await page.locator(".cm-content").first().innerText();
+					check(doc.includes("revenue"), `${tag}: assistant SQL replaces the editor (nothing run)`);
+					// Fix flow: run a broken statement and hand the error to Claude.
+					await setDoc(page, "select id, status\nfrm orders\nwhere total > 100;");
+					await page.keyboard.press("Control+Enter");
+					await waitIdle(page);
+					await page.getByRole("button", { name: "Fix with Claude" }).click();
+					await page.getByRole("button", { name: "Replace editor" }).first().waitFor({ timeout: 30_000 });
+					await page.waitForTimeout(300);
+					check((await page.getByText("Fixing").count()) > 0, `${tag}: fix request shows the failing SQL`);
+					await shot(page, `${tag}-assistant-fix`, mode, width);
+				}
+				const close = page.getByRole("button", { name: "Close assistant" });
+				if (await close.count()) await close.first().click();
+			}
+
 			if (run("overview")) {
 				await setDoc(page, "select * from orders order by id limit 200;");
 				await page.keyboard.press("Control+Enter");

@@ -54,6 +54,12 @@ both are ignored when `NODE_ENV=production` (see `lib/dev-override.ts`). To poin
 database record at a local engine, give its instance the engine's default port and add that
 engine to `TENANT_PORT_OVERRIDE`.
 
+The SQL console's "Ask Claude" assistant needs `ANTHROPIC_API_KEY`; without it the panel
+says so and everything else works. To exercise it without a key or any spend, run
+`bun e2e/mock-anthropic.ts` and start the app with `ANTHROPIC_API_KEY=test` and
+`ANTHROPIC_BASE_URL=http://127.0.0.1:4011`. `e2e/sql-console.mjs` drives the whole console
+against these engines.
+
 `docker compose -f docker-compose.dev.yaml down -v` throws everything away; re-run
 `dev:seed` to start over (it is idempotent anyway).
 

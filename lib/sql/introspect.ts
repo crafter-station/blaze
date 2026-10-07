@@ -442,7 +442,7 @@ export function schemaAsText(snapshot: SchemaSnapshot, maxChars = 24_000): strin
 		const name =
 			table.schema === snapshot.defaultSchema ? table.name : `${table.schema}.${table.name}`;
 		const columns = table.columns.map((c) => {
-			const flags = [c.isPrimaryKey ? "pk" : "", c.nullable ? "" : "not null"]
+			const flags = [c.isPrimaryKey ? "pk" : "", c.nullable || c.isPrimaryKey ? "" : "not null"]
 				.filter(Boolean)
 				.join(" ");
 			return `${c.name} ${c.type}${flags ? ` ${flags}` : ""}`;

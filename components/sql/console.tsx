@@ -17,6 +17,7 @@ import {
 	PlayCircle,
 	Plus,
 	Save,
+	Sparkles,
 	WandSparkles,
 	X,
 } from "lucide-react";
@@ -55,6 +56,7 @@ import { normalizePlan, supportsAnalyze } from "@/lib/sql/explain";
 import { type Statement, splitStatements, statementAt, statementsInRange } from "@/lib/sql/split";
 import type { SchemaSnapshot, SchemaTable, SqlEngine } from "@/lib/sql/types";
 import { cn } from "@/lib/utils";
+import { AssistantPanel, type AssistantTrigger } from "./assistant-panel";
 import {
 	ConfirmAnalyze,
 	ConfirmDelete,
@@ -672,6 +674,24 @@ export function SqlConsole(props: ConsoleProps) {
 		[pending, collect, runExplain, engine],
 	);
 
+	/* ---------------- assistant ---------------- */
+
+	const [assistantOpen, setAssistantOpen] = useState(false);
+	const [assistantTrigger, setAssistantTrigger] = useState<AssistantTrigger | null>(null);
+
+	const askClaude = useCallback((mode: AssistantTrigger["mode"], sql?: string, error?: string) => {
+		setAssistantOpen(true);
+		setAssistantTrigger({ mode, sql, error, nonce: Date.now() });
+	}, []);
+
+	const statementText = useCallback(
+		() =>
+			collect("cursor")
+				.map((s) => s.text)
+				.join(";\n"),
+		[collect],
+	);
+
 	/* ---------------- handlers bound into the editor keymap ---------------- */
 
 	const handlers = useRef<EditorHandlers>({
@@ -929,6 +949,24 @@ export function SqlConsole(props: ConsoleProps) {
 		{ id: "saved", label: "Show saved queries", icon: Bookmark, run: () => showPanel("saved") },
 		{ id: "history", label: "Show query history", icon: History, run: () => showPanel("history") },
 		{
+			id: "ask-write",
+			label: "Ask Claude to write SQL",
+			icon: Sparkles,
+			keywords: ["ai", "assistant", "generate", "text to sql"],
+			run: () => askClaude("generate"),
+		},
+		{
+			id: "ask-explain",
+			label: "Ask Claude to explain this query",
+			icon: Sparkles,
+			keywords: ["ai", "assistant"],
+			run: () => {
+				const sql = statementText();
+				if (sql.trim()) askClaude("explain", sql);
+				else setAssistantOpen(true);
+			},
+		},
+		{
 			id: "shortcuts",
 			label: "Keyboard shortcuts",
 			icon: Keyboard,
@@ -973,6 +1011,21 @@ export function SqlConsole(props: ConsoleProps) {
 			],
 		},
 	];
+
+	const assistant = (
+		<AssistantPanel
+			databaseId={databaseId}
+			enabled={aiEnabled}
+			trigger={assistantTrigger}
+			getEditorSql={() => apiRef.current?.getDoc() ?? ""}
+			getStatementSql={statementText}
+			onInsert={(sql) => apiRef.current?.insert(sql)}
+			onReplace={(sql) => apiRef.current?.replaceAll(`${sql}\n`)}
+			onOpenTab={(sql) => openTab(`${sql}\n`, "From Claude")}
+			onClose={() => setAssistantOpen(false)}
+			className="h-full"
+		/>
+	);
 
 	return (
 		<div className="flex flex-col lg:h-[calc(100dvh-3.5rem)]">
@@ -1071,7 +1124,7 @@ export function SqlConsole(props: ConsoleProps) {
 					</div>
 
 					{/* Toolbar */}
-					<div className="flex h-11 shrink-0 items-center gap-1.5 border-border border-b bg-card px-2">
+					<div className="@container flex h-11 shrink-0 items-center gap-1 overflow-hidden border-border border-b bg-card px-2">
 						<div className="flex items-center">
 							<Button
 								size="sm"
@@ -1121,9 +1174,10 @@ export function SqlConsole(props: ConsoleProps) {
 								disabled={!!pending}
 								className="rounded-r-none"
 								title={`Explain the statement at the cursor (⇧${mod}E)`}
+								aria-label="Explain statement"
 							>
 								<Network data-icon="inline-start" />
-								<span className="hidden sm:inline">Explain</span>
+								<span className="hidden @lg:inline">Explain</span>
 							</Button>
 							{supportsAnalyze(engine) && (
 								<DropdownMenu>
@@ -1152,28 +1206,55 @@ export function SqlConsole(props: ConsoleProps) {
 								</DropdownMenu>
 							)}
 						</div>
-						<Button variant="ghost" size="sm" onClick={format} title="Format SQL (Shift+Alt+F)">
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={format}
+							title="Format SQL (Shift+Alt+F)"
+							aria-label="Format SQL"
+						>
 							<WandSparkles data-icon="inline-start" />
-							<span className="hidden sm:inline">Format</span>
+							<span className="hidden @2xl:inline">Format</span>
 						</Button>
-						<Button variant="ghost" size="sm" onClick={save} title={`Save query (${mod}S)`}>
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={save}
+							title={`Save query (${mod}S)`}
+							aria-label={active.savedId ? "Save query" : "Save query as"}
+						>
 							<Save data-icon="inline-start" />
-							<span className="hidden sm:inline">{active.savedId ? "Save" : "Save as…"}</span>
+							<span className="hidden @2xl:inline">{active.savedId ? "Save" : "Save as…"}</span>
 						</Button>
-						<p className="ml-auto hidden truncate text-[0.6875rem] text-muted-foreground 2xl:block">
+						<p className="ml-auto hidden truncate text-[0.6875rem] text-muted-foreground @6xl:block">
 							Runs as <span className="font-mono text-foreground/80">{roleName}</span> ·{" "}
 							{timeoutSeconds}s timeout · first {maxRows} rows
 						</p>
 						<Button
+							variant={assistantOpen ? "secondary" : "ghost"}
+							size="sm"
+							className="ml-auto @6xl:ml-0"
+							onClick={() => setAssistantOpen((open) => !open)}
+							aria-pressed={assistantOpen}
+							aria-label="Ask Claude"
+							title={aiEnabled ? "Ask Claude" : "Ask Claude (not configured on this server)"}
+						>
+							<Sparkles
+								data-icon="inline-start"
+								className={aiEnabled ? "text-brand-text" : undefined}
+							/>
+							<span className="hidden @xl:inline">Ask Claude</span>
+						</Button>
+						<Button
 							variant="ghost"
 							size="sm"
-							className="ml-auto text-muted-foreground 2xl:ml-0"
+							className="text-muted-foreground"
 							onClick={() => setPaletteOpen(true)}
 							aria-label="Open command palette"
 						>
 							<CommandIcon data-icon="inline-start" />
-							<span className="hidden md:inline">Commands</span>
-							<kbd className="ml-1 hidden rounded-sm bg-muted px-1 font-sans text-[0.6875rem] md:inline">
+							<span className="hidden @3xl:inline">Commands</span>
+							<kbd className="ml-1 hidden rounded-sm bg-muted px-1 font-sans text-[0.6875rem] @3xl:inline">
 								{mod}K
 							</kbd>
 						</Button>
@@ -1229,6 +1310,7 @@ export function SqlConsole(props: ConsoleProps) {
 								pending={isPending}
 								pendingSince={isPending ? (pending?.since ?? null) : null}
 								onShowError={(entry) => markError(entry, current?.doc ?? "")}
+								onFixError={(entry) => askClaude("fix", entry.text, entry.outcome.error)}
 								aiEnabled={aiEnabled}
 								activeTab={current?.active ?? 0}
 								onActiveTabChange={(tab) =>
@@ -1307,7 +1389,22 @@ export function SqlConsole(props: ConsoleProps) {
 						</div>
 					</div>
 				</div>
+				{desktop && assistantOpen && (
+					<aside className="w-[min(400px,34%)] shrink-0 border-border border-l">{assistant}</aside>
+				)}
 			</div>
+
+			{!desktop && (
+				<Sheet open={assistantOpen} onOpenChange={setAssistantOpen}>
+					<SheetContent side="bottom" className="h-[88dvh] gap-0 p-0" showCloseButton={false}>
+						<SheetHeader className="sr-only">
+							<SheetTitle>Ask Claude</SheetTitle>
+							<SheetDescription>Write, explain or fix SQL with Claude</SheetDescription>
+						</SheetHeader>
+						{assistant}
+					</SheetContent>
+				</Sheet>
+			)}
 
 			{!desktop && (
 				<Sheet open={explorerSheet} onOpenChange={setExplorerSheet}>
