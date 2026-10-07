@@ -22,6 +22,8 @@ const DATABASE_PAGE: Record<string, string> = {
 	monitoring: "Monitoring",
 	sql: "SQL editor",
 	tables: "Tables",
+	browser: "Browser",
+	console: "Console",
 };
 
 function crumbs(pathname: string, databases: SidebarDatabase[]) {

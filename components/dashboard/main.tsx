@@ -3,12 +3,13 @@
 import { usePathname } from "next/navigation";
 
 /**
- * The console's content frame. Pages sit in a centred, padded column; the SQL editor is
- * a workspace and takes the full width and height below the top bar instead.
+ * The console's content frame. Pages sit in a centred, padded column; the SQL editor and
+ * the Redis console and key browser are workspaces and take the full width and height
+ * below the top bar instead.
  */
 export function Main({ children }: { children: React.ReactNode }) {
 	const pathname = usePathname();
-	const workspace = /^\/databases\/[^/]+\/sql\/?$/.test(pathname);
+	const workspace = /^\/databases\/[^/]+\/(sql|console|browser)\/?$/.test(pathname);
 
 	if (workspace) {
 		return (

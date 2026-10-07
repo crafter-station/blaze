@@ -36,16 +36,30 @@ export const WORKSPACE_NAV: NavItem[] = [
 	{ href: "/settings", label: "Settings", icon: Settings },
 ];
 
-/** Mongo and Redis have no SQL editor (PLAN.md Q18), so the row is not offered. */
+/**
+ * Per-database tools depend on the engine: SQL engines get the SQL editor and the table
+ * browser; Redis gets its own key Browser and Console in those slots. Mongo has neither
+ * yet (PLAN.md Q18).
+ */
+export function databaseTools(database: Pick<SidebarDatabase, "id" | "engine">): NavItem[] {
+	const base = `/databases/${database.id}`;
+	if (database.engine === "redis") {
+		return [{ href: `${base}/console`, label: "Console", icon: SquareTerminal }];
+	}
+	return [
+		...(ENGINE_CONFIG[database.engine].hasSql
+			? [{ href: `${base}/sql`, label: "SQL editor", icon: SquareTerminal }]
+			: []),
+		{ href: `${base}/tables`, label: "Tables", icon: Table2 },
+	];
+}
+
 export function databaseNav(database: SidebarDatabase): NavItem[] {
 	const base = `/databases/${database.id}`;
 	return [
 		{ href: base, label: "Overview", icon: Gauge },
 		{ href: `${base}/monitoring`, label: "Monitoring", icon: Activity },
-		...(ENGINE_CONFIG[database.engine].hasSql
-			? [{ href: `${base}/sql`, label: "SQL editor", icon: SquareTerminal }]
-			: []),
-		{ href: `${base}/tables`, label: "Tables", icon: Table2 },
+		...databaseTools(database),
 	];
 }
 
