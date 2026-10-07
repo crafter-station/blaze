@@ -1,0 +1,29 @@
+---
+title: Security
+description: How tenants are kept apart, and what is not finished yet.
+icon: ShieldCheck
+---
+
+## TLS on every connection
+
+The server refuses unencrypted connections. The certificate is self-signed for now: traffic is encrypted, but the server is not yet authenticated. See [TLS](/docs/tls) for the one client that needs a different `sslmode`.
+
+## One role per database
+
+Each PostgreSQL, MySQL and MariaDB database gets a role that owns it and reaches nothing else on the instance, including other tenants and the maintenance database.
+
+## Redis gets its own container
+
+Redis ACLs cannot contain a tenant: `FLUSHALL` ignores key patterns. So every Redis database is a separate container with its own memory cap, enforced by Redis itself through `maxmemory`.
+
+## Secrets stored the right way
+
+Database passwords are encrypted with AES-GCM so the dashboard can show them back to you. API keys are stored only as SHA-256 hashes, which is why a key is shown once.
+
+## OAuth for agents
+
+The [MCP server](/docs/mcp) advertises OAuth, so an agent gets its own token after you approve it in the browser, instead of a long-lived key pasted into a config file.
+
+## Hostnames, never IPs
+
+Every database is addressed through DNS that blaze controls, so moving a container is a config change, not a broken connection string.

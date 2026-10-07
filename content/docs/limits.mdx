@@ -12,6 +12,11 @@ blaze is free and has no billing, so these limits are what keeps it running rath
 
 Storage is sampled every five minutes. A database over its limit is suspended (connections refused, nothing deleted) and reinstated automatically once it is back under.
 
+## What the alpha does not have yet
+
+- **No backups yet.** Treat alpha databases as somewhere to build and test. A dropped database is gone, and there is nothing to restore it from.
+- **One region, one machine.** blaze runs on a single VPS today. Connection strings use hostnames, never IPs, so it can grow without breaking the strings you have saved.
+
 ## Engine availability
 
 <EngineList />

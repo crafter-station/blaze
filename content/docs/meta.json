@@ -15,6 +15,7 @@
 		"errors",
 		"---Platform---",
 		"limits",
+		"security",
 		"tls"
 	]
 }
