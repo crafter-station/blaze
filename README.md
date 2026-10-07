@@ -60,6 +60,27 @@ it without a key or any spend, run `bun e2e/mock-openai.ts` and start the app wi
 `OPENAI_API_KEY=test` and `OPENAI_BASE_URL=http://127.0.0.1:4011/v1`. `e2e/sql-console.mjs` drives the whole console
 against these engines.
 
+## Local Redis
+
+The same compose file runs a Redis 8 configured like a dedicated tenant container
+(`blaze/redis-tls`): TLS is the only listener (`--port 0`, a self-signed certificate
+generated once into a volume), `maxmemory 64mb` with `noeviction`, append-only
+persistence, and an ACL file (`dev/redis/users.acl`) where the tenant is `default`
+(everything except CONFIG, ACL and REPLICAOF) and blaze is `blazeadmin`. The image's own
+entrypoint loads the bundled modules (JSON, Search, TimeSeries, Bloom).
+
+`dev:seed` fills it as `default` with ~3.3k keys covering every type the key browser
+renders: strings (plain, JSON, binary, counters), lists, hashes, sets, sorted sets, a
+stream with consumer groups and pending entries, ReJSON documents, a time series, a Bloom
+filter, keys with TTLs and a few awkward names, across `user:*`, `session:*`, `cache:*`
+and more. It registers the database as `/databases/db_cachedevrds2/browser` (the Browser)
+and `/databases/db_cachedevrds2/console` (the Console). `--only redis` reseeds just Redis.
+
+```bash
+# Connect from your machine the way a tenant would:
+docker exec -it blaze-dev-redis-1 redis-cli --tls --insecure --user default --pass devpassword-cache
+```
+
 `docker compose -f docker-compose.dev.yaml down -v` throws everything away; re-run
 `dev:seed` to start over (it is idempotent anyway).
 

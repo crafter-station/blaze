@@ -1,0 +1,1663 @@
+{
+	"set": {
+		"summary": "Sets the string value of a key, ignoring its type. The key is created if it doesn't exist.",
+		"since": "1.0.0",
+		"group": "string",
+		"complexity": "O(1)",
+		"history": [
+			["2.6.12", "Added the `EX`, `PX`, `NX` and `XX` options."],
+			["6.0.0", "Added the `KEEPTTL` option."],
+			["6.2.0", "Added the `GET`, `EXAT` and `PXAT` option."],
+			["7.0.0", "Allowed the `NX` and `GET` options to be used together."],
+			["8.4.0", "Added 'IFEQ', 'IFNE', 'IFDEQ', 'IFDNE' options."]
+		],
+		"arguments": [
+			{
+				"name": "key",
+				"type": "key",
+				"display_text": "key",
+				"key_spec_index": 0
+			},
+			{
+				"name": "value",
+				"type": "string",
+				"display_text": "value"
+			},
+			{
+				"name": "condition",
+				"type": "oneof",
+				"since": "2.6.12",
+				"flags": ["optional"],
+				"arguments": [
+					{
+						"name": "nx",
+						"type": "pure-token",
+						"display_text": "nx",
+						"token": "NX"
+					},
+					{
+						"name": "xx",
+						"type": "pure-token",
+						"display_text": "xx",
+						"token": "XX"
+					},
+					{
+						"name": "ifeq-value",
+						"type": "string",
+						"display_text": "ifeq-value",
+						"token": "IFEQ",
+						"since": "8.4.0"
+					},
+					{
+						"name": "ifne-value",
+						"type": "string",
+						"display_text": "ifne-value",
+						"token": "IFNE",
+						"since": "8.4.0"
+					},
+					{
+						"name": "ifdeq-digest",
+						"type": "string",
+						"display_text": "ifdeq-digest",
+						"token": "IFDEQ",
+						"since": "8.4.0"
+					},
+					{
+						"name": "ifdne-digest",
+						"type": "string",
+						"display_text": "ifdne-digest",
+						"token": "IFDNE",
+						"since": "8.4.0"
+					}
+				]
+			},
+			{
+				"name": "get",
+				"type": "pure-token",
+				"display_text": "get",
+				"token": "GET",
+				"since": "6.2.0",
+				"flags": ["optional"]
+			},
+			{
+				"name": "expiration",
+				"type": "oneof",
+				"flags": ["optional"],
+				"arguments": [
+					{
+						"name": "seconds",
+						"type": "integer",
+						"display_text": "seconds",
+						"token": "EX",
+						"since": "2.6.12"
+					},
+					{
+						"name": "milliseconds",
+						"type": "integer",
+						"display_text": "milliseconds",
+						"token": "PX",
+						"since": "2.6.12"
+					},
+					{
+						"name": "unix-time-seconds",
+						"type": "unix-time",
+						"display_text": "unix-time-seconds",
+						"token": "EXAT",
+						"since": "6.2.0"
+					},
+					{
+						"name": "unix-time-milliseconds",
+						"type": "unix-time",
+						"display_text": "unix-time-milliseconds",
+						"token": "PXAT",
+						"since": "6.2.0"
+					},
+					{
+						"name": "keepttl",
+						"type": "pure-token",
+						"display_text": "keepttl",
+						"token": "KEEPTTL",
+						"since": "6.0.0"
+					}
+				]
+			}
+		]
+	},
+	"get": {
+		"summary": "Returns the string value of a key.",
+		"since": "1.0.0",
+		"group": "string",
+		"complexity": "O(1)",
+		"arguments": [
+			{
+				"name": "key",
+				"type": "key",
+				"display_text": "key",
+				"key_spec_index": 0
+			}
+		]
+	},
+	"del": {
+		"summary": "Deletes one or more keys.",
+		"since": "1.0.0",
+		"group": "generic",
+		"complexity": "O(N) where N is the number of keys that will be removed. When a key to remove holds a value other than a string, the individual complexity for this key is O(M) where M is the number of elements in the list, set, sorted set or hash. Removing a single key that holds a string value is O(1).",
+		"arguments": [
+			{
+				"name": "key",
+				"type": "key",
+				"display_text": "key",
+				"key_spec_index": 0,
+				"flags": ["multiple"]
+			}
+		]
+	},
+	"zadd": {
+		"summary": "Adds one or more members to a sorted set, or updates their scores. Creates the key if it doesn't exist.",
+		"since": "1.2.0",
+		"group": "sorted-set",
+		"complexity": "O(log(N)) for each item added, where N is the number of elements in the sorted set.",
+		"history": [
+			["2.4.0", "Accepts multiple elements."],
+			["3.0.2", "Added the `XX`, `NX`, `CH` and `INCR` options."],
+			["6.2.0", "Added the `GT` and `LT` options."]
+		],
+		"arguments": [
+			{
+				"name": "key",
+				"type": "key",
+				"display_text": "key",
+				"key_spec_index": 0
+			},
+			{
+				"name": "condition",
+				"type": "oneof",
+				"since": "3.0.2",
+				"flags": ["optional"],
+				"arguments": [
+					{
+						"name": "nx",
+						"type": "pure-token",
+						"display_text": "nx",
+						"token": "NX"
+					},
+					{
+						"name": "xx",
+						"type": "pure-token",
+						"display_text": "xx",
+						"token": "XX"
+					}
+				]
+			},
+			{
+				"name": "comparison",
+				"type": "oneof",
+				"since": "6.2.0",
+				"flags": ["optional"],
+				"arguments": [
+					{
+						"name": "gt",
+						"type": "pure-token",
+						"display_text": "gt",
+						"token": "GT"
+					},
+					{
+						"name": "lt",
+						"type": "pure-token",
+						"display_text": "lt",
+						"token": "LT"
+					}
+				]
+			},
+			{
+				"name": "change",
+				"type": "pure-token",
+				"display_text": "change",
+				"token": "CH",
+				"since": "3.0.2",
+				"flags": ["optional"]
+			},
+			{
+				"name": "increment",
+				"type": "pure-token",
+				"display_text": "increment",
+				"token": "INCR",
+				"since": "3.0.2",
+				"flags": ["optional"]
+			},
+			{
+				"name": "data",
+				"type": "block",
+				"flags": ["multiple"],
+				"arguments": [
+					{
+						"name": "score",
+						"type": "double",
+						"display_text": "score"
+					},
+					{
+						"name": "member",
+						"type": "string",
+						"display_text": "member"
+					}
+				]
+			}
+		]
+	},
+	"scan": {
+		"summary": "Iterates over the key names in the database.",
+		"since": "2.8.0",
+		"group": "generic",
+		"complexity": "O(1) for every call. O(N) for a complete iteration, including enough command calls for the cursor to return back to 0. N is the number of elements inside the collection.",
+		"history": [["6.0.0", "Added the `TYPE` subcommand."]],
+		"arguments": [
+			{
+				"name": "cursor",
+				"type": "integer",
+				"display_text": "cursor"
+			},
+			{
+				"name": "pattern",
+				"type": "pattern",
+				"display_text": "pattern",
+				"token": "MATCH",
+				"flags": ["optional"]
+			},
+			{
+				"name": "count",
+				"type": "integer",
+				"display_text": "count",
+				"token": "COUNT",
+				"flags": ["optional"]
+			},
+			{
+				"name": "type",
+				"type": "string",
+				"display_text": "type",
+				"token": "TYPE",
+				"since": "6.0.0",
+				"flags": ["optional"]
+			}
+		]
+	},
+	"blpop": {
+		"summary": "Removes and returns the first element in a list. Blocks until an element is available otherwise. Deletes the list if the last element was popped.",
+		"since": "2.0.0",
+		"group": "list",
+		"complexity": "O(N) where N is the number of provided keys.",
+		"history": [["6.0.0", "`timeout` is interpreted as a double instead of an integer."]],
+		"arguments": [
+			{
+				"name": "key",
+				"type": "key",
+				"display_text": "key",
+				"key_spec_index": 0,
+				"flags": ["multiple"]
+			},
+			{
+				"name": "timeout",
+				"type": "double",
+				"display_text": "timeout"
+			}
+		]
+	},
+	"xread": {
+		"summary": "Returns messages from multiple streams with IDs greater than the ones requested. Blocks until a message is available otherwise.",
+		"since": "5.0.0",
+		"group": "stream",
+		"history": [["8.10.0", "Added the `MAXCOUNT` and `MAXSIZE` options."]],
+		"arguments": [
+			{
+				"name": "count",
+				"type": "integer",
+				"display_text": "count",
+				"token": "COUNT",
+				"flags": ["optional"]
+			},
+			{
+				"name": "maxcount",
+				"type": "integer",
+				"display_text": "maxcount",
+				"token": "MAXCOUNT",
+				"since": "8.10.0",
+				"flags": ["optional"]
+			},
+			{
+				"name": "maxsize",
+				"type": "integer",
+				"display_text": "maxsize",
+				"token": "MAXSIZE",
+				"since": "8.10.0",
+				"flags": ["optional"]
+			},
+			{
+				"name": "milliseconds",
+				"type": "integer",
+				"display_text": "milliseconds",
+				"token": "BLOCK",
+				"flags": ["optional"]
+			},
+			{
+				"name": "streams",
+				"type": "block",
+				"token": "STREAMS",
+				"arguments": [
+					{
+						"name": "key",
+						"type": "key",
+						"display_text": "key",
+						"key_spec_index": 0,
+						"flags": ["multiple"]
+					},
+					{
+						"name": "id",
+						"type": "string",
+						"display_text": "id",
+						"flags": ["multiple"]
+					}
+				]
+			}
+		]
+	},
+	"xadd": {
+		"summary": "Appends a new message to a stream. Creates the key if it doesn't exist.",
+		"since": "5.0.0",
+		"group": "stream",
+		"complexity": "O(1) when adding a new entry, O(N) when trimming where N being the number of entries evicted.",
+		"history": [
+			["6.2.0", "Added the `NOMKSTREAM` option, `MINID` trimming strategy and the `LIMIT` option."],
+			["7.0.0", "Added support for the `<ms>-*` explicit ID form."],
+			["8.2.0", "Added the `KEEPREF`, `DELREF` and `ACKED` options."]
+		],
+		"arguments": [
+			{
+				"name": "key",
+				"type": "key",
+				"display_text": "key",
+				"key_spec_index": 0
+			},
+			{
+				"name": "nomkstream",
+				"type": "pure-token",
+				"display_text": "nomkstream",
+				"token": "NOMKSTREAM",
+				"since": "6.2.0",
+				"flags": ["optional"]
+			},
+			{
+				"name": "condition",
+				"type": "oneof",
+				"flags": ["optional"],
+				"arguments": [
+					{
+						"name": "keepref",
+						"type": "pure-token",
+						"display_text": "keepref",
+						"token": "KEEPREF"
+					},
+					{
+						"name": "delref",
+						"type": "pure-token",
+						"display_text": "delref",
+						"token": "DELREF"
+					},
+					{
+						"name": "acked",
+						"type": "pure-token",
+						"display_text": "acked",
+						"token": "ACKED"
+					}
+				]
+			},
+			{
+				"name": "idmp",
+				"type": "oneof",
+				"since": "8.6.0",
+				"flags": ["optional"],
+				"arguments": [
+					{
+						"name": "pid",
+						"type": "string",
+						"display_text": "pid",
+						"token": "IDMPAUTO"
+					},
+					{
+						"name": "idmp",
+						"type": "block",
+						"token": "IDMP",
+						"arguments": [
+							{
+								"name": "pid",
+								"type": "string",
+								"display_text": "pid"
+							},
+							{
+								"name": "iid",
+								"type": "string",
+								"display_text": "iid"
+							}
+						]
+					}
+				]
+			},
+			{
+				"name": "trim",
+				"type": "block",
+				"flags": ["optional"],
+				"arguments": [
+					{
+						"name": "strategy",
+						"type": "oneof",
+						"arguments": [
+							{
+								"name": "maxlen",
+								"type": "pure-token",
+								"display_text": "maxlen",
+								"token": "MAXLEN"
+							},
+							{
+								"name": "minid",
+								"type": "pure-token",
+								"display_text": "minid",
+								"token": "MINID",
+								"since": "6.2.0"
+							}
+						]
+					},
+					{
+						"name": "operator",
+						"type": "oneof",
+						"flags": ["optional"],
+						"arguments": [
+							{
+								"name": "equal",
+								"type": "pure-token",
+								"display_text": "equal",
+								"token": "="
+							},
+							{
+								"name": "approximately",
+								"type": "pure-token",
+								"display_text": "approximately",
+								"token": "~"
+							}
+						]
+					},
+					{
+						"name": "threshold",
+						"type": "string",
+						"display_text": "threshold"
+					},
+					{
+						"name": "count",
+						"type": "integer",
+						"display_text": "count",
+						"token": "LIMIT",
+						"since": "6.2.0",
+						"flags": ["optional"]
+					}
+				]
+			},
+			{
+				"name": "id-selector",
+				"type": "oneof",
+				"arguments": [
+					{
+						"name": "auto-id",
+						"type": "pure-token",
+						"display_text": "auto-id",
+						"token": "*"
+					},
+					{
+						"name": "id",
+						"type": "string",
+						"display_text": "id"
+					}
+				]
+			},
+			{
+				"name": "data",
+				"type": "block",
+				"flags": ["multiple"],
+				"arguments": [
+					{
+						"name": "field",
+						"type": "string",
+						"display_text": "field"
+					},
+					{
+						"name": "value",
+						"type": "string",
+						"display_text": "value"
+					}
+				]
+			}
+		]
+	},
+	"client": {
+		"summary": "A container for client connection commands.",
+		"since": "2.4.0",
+		"group": "connection",
+		"complexity": "Depends on subcommand.",
+		"subcommands": {
+			"client|pause": {
+				"summary": "Suspends commands processing.",
+				"since": "3.0.0",
+				"group": "connection",
+				"complexity": "O(1)",
+				"history": [["6.2.0", "`CLIENT PAUSE WRITE` mode added along with the `mode` option."]],
+				"arguments": [
+					{
+						"name": "timeout",
+						"type": "integer",
+						"display_text": "timeout"
+					},
+					{
+						"name": "mode",
+						"type": "oneof",
+						"since": "6.2.0",
+						"flags": ["optional"],
+						"arguments": [
+							{
+								"name": "write",
+								"type": "pure-token",
+								"display_text": "write",
+								"token": "WRITE"
+							},
+							{
+								"name": "all",
+								"type": "pure-token",
+								"display_text": "all",
+								"token": "ALL"
+							}
+						]
+					}
+				]
+			},
+			"client|kill": {
+				"summary": "Terminates open connections.",
+				"since": "2.4.0",
+				"group": "connection",
+				"complexity": "O(N) where N is the number of client connections",
+				"history": [
+					["2.8.12", "Added new filter format."],
+					["2.8.12", "`ID` option."],
+					["3.2.0", "Added `master` type in for `TYPE` option."],
+					[
+						"5.0.0",
+						"Replaced `slave` `TYPE` with `replica`. `slave` still supported for backward compatibility."
+					],
+					["6.2.0", "`LADDR` option."],
+					["7.4.0", "`MAXAGE` option."]
+				],
+				"arguments": [
+					{
+						"name": "filter",
+						"type": "oneof",
+						"arguments": [
+							{
+								"name": "old-format",
+								"type": "string",
+								"display_text": "ip:port",
+								"deprecated_since": "2.8.12"
+							},
+							{
+								"name": "new-format",
+								"type": "oneof",
+								"flags": ["multiple"],
+								"arguments": [
+									{
+										"name": "client-id",
+										"type": "integer",
+										"display_text": "client-id",
+										"token": "ID",
+										"since": "2.8.12",
+										"flags": ["optional"]
+									},
+									{
+										"name": "client-type",
+										"type": "oneof",
+										"token": "TYPE",
+										"since": "2.8.12",
+										"flags": ["optional"],
+										"arguments": [
+											{
+												"name": "normal",
+												"type": "pure-token",
+												"display_text": "normal",
+												"token": "NORMAL"
+											},
+											{
+												"name": "master",
+												"type": "pure-token",
+												"display_text": "master",
+												"token": "MASTER",
+												"since": "3.2.0"
+											},
+											{
+												"name": "slave",
+												"type": "pure-token",
+												"display_text": "slave",
+												"token": "SLAVE"
+											},
+											{
+												"name": "replica",
+												"type": "pure-token",
+												"display_text": "replica",
+												"token": "REPLICA",
+												"since": "5.0.0"
+											},
+											{
+												"name": "pubsub",
+												"type": "pure-token",
+												"display_text": "pubsub",
+												"token": "PUBSUB"
+											}
+										]
+									},
+									{
+										"name": "username",
+										"type": "string",
+										"display_text": "username",
+										"token": "USER",
+										"flags": ["optional"]
+									},
+									{
+										"name": "addr",
+										"type": "string",
+										"display_text": "ip:port",
+										"token": "ADDR",
+										"flags": ["optional"]
+									},
+									{
+										"name": "laddr",
+										"type": "string",
+										"display_text": "ip:port",
+										"token": "LADDR",
+										"since": "6.2.0",
+										"flags": ["optional"]
+									},
+									{
+										"name": "skipme",
+										"type": "oneof",
+										"token": "SKIPME",
+										"flags": ["optional"],
+										"arguments": [
+											{
+												"name": "yes",
+												"type": "pure-token",
+												"display_text": "yes",
+												"token": "YES"
+											},
+											{
+												"name": "no",
+												"type": "pure-token",
+												"display_text": "no",
+												"token": "NO"
+											}
+										]
+									},
+									{
+										"name": "maxage",
+										"type": "integer",
+										"display_text": "maxage",
+										"token": "MAXAGE",
+										"since": "7.4.0",
+										"flags": ["optional"]
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			"client|reply": {
+				"summary": "Instructs the server whether to reply to commands.",
+				"since": "3.2.0",
+				"group": "connection",
+				"complexity": "O(1)",
+				"arguments": [
+					{
+						"name": "action",
+						"type": "oneof",
+						"arguments": [
+							{
+								"name": "on",
+								"type": "pure-token",
+								"display_text": "on",
+								"token": "ON"
+							},
+							{
+								"name": "off",
+								"type": "pure-token",
+								"display_text": "off",
+								"token": "OFF"
+							},
+							{
+								"name": "skip",
+								"type": "pure-token",
+								"display_text": "skip",
+								"token": "SKIP"
+							}
+						]
+					}
+				]
+			},
+			"client|list": {
+				"summary": "Lists open connections.",
+				"since": "2.4.0",
+				"group": "connection",
+				"complexity": "O(N) where N is the number of client connections",
+				"history": [
+					["2.8.12", "Added unique client `id` field."],
+					["5.0.0", "Added optional `TYPE` filter."],
+					["6.0.0", "Added `user` field."],
+					[
+						"6.2.0",
+						"Added `argv-mem`, `tot-mem`, `laddr` and `redir` fields and the optional `ID` filter."
+					],
+					["7.0.0", "Added `resp`, `multi-mem`, `rbs` and `rbp` fields."],
+					["7.0.3", "Added `ssub` field."],
+					["7.2.0", "Added `lib-name` and `lib-ver` fields."],
+					["7.4.0", "Added `watch` field."],
+					["8.0.0", "Added `io-thread` field."]
+				],
+				"arguments": [
+					{
+						"name": "client-type",
+						"type": "oneof",
+						"token": "TYPE",
+						"since": "5.0.0",
+						"flags": ["optional"],
+						"arguments": [
+							{
+								"name": "normal",
+								"type": "pure-token",
+								"display_text": "normal",
+								"token": "NORMAL"
+							},
+							{
+								"name": "master",
+								"type": "pure-token",
+								"display_text": "master",
+								"token": "MASTER"
+							},
+							{
+								"name": "replica",
+								"type": "pure-token",
+								"display_text": "replica",
+								"token": "REPLICA"
+							},
+							{
+								"name": "pubsub",
+								"type": "pure-token",
+								"display_text": "pubsub",
+								"token": "PUBSUB"
+							}
+						]
+					},
+					{
+						"name": "client-id",
+						"type": "integer",
+						"display_text": "client-id",
+						"token": "ID",
+						"since": "6.2.0",
+						"flags": ["optional", "multiple"]
+					}
+				]
+			},
+			"client|getname": {
+				"summary": "Returns the name of the connection.",
+				"since": "2.6.9",
+				"group": "connection",
+				"complexity": "O(1)"
+			},
+			"client|getredir": {
+				"summary": "Returns the client ID to which the connection's tracking notifications are redirected.",
+				"since": "6.0.0",
+				"group": "connection",
+				"complexity": "O(1)"
+			},
+			"client|setinfo": {
+				"summary": "Sets information specific to the client or connection.",
+				"since": "7.2.0",
+				"group": "connection",
+				"complexity": "O(1)",
+				"arguments": [
+					{
+						"name": "attr",
+						"type": "oneof",
+						"arguments": [
+							{
+								"name": "libname",
+								"type": "string",
+								"display_text": "libname",
+								"token": "LIB-NAME"
+							},
+							{
+								"name": "libver",
+								"type": "string",
+								"display_text": "libver",
+								"token": "LIB-VER"
+							}
+						]
+					}
+				]
+			},
+			"client|setname": {
+				"summary": "Sets the connection name.",
+				"since": "2.6.9",
+				"group": "connection",
+				"complexity": "O(1)",
+				"arguments": [
+					{
+						"name": "connection-name",
+						"type": "string",
+						"display_text": "connection-name"
+					}
+				]
+			},
+			"client|trackinginfo": {
+				"summary": "Returns information about server-assisted client-side caching for the connection.",
+				"since": "6.2.0",
+				"group": "connection",
+				"complexity": "O(1)"
+			},
+			"client|tracking": {
+				"summary": "Controls server-assisted client-side caching for the connection.",
+				"since": "6.0.0",
+				"group": "connection",
+				"complexity": "O(1). Some options may introduce additional complexity.",
+				"arguments": [
+					{
+						"name": "status",
+						"type": "oneof",
+						"arguments": [
+							{
+								"name": "on",
+								"type": "pure-token",
+								"display_text": "on",
+								"token": "ON"
+							},
+							{
+								"name": "off",
+								"type": "pure-token",
+								"display_text": "off",
+								"token": "OFF"
+							}
+						]
+					},
+					{
+						"name": "client-id",
+						"type": "integer",
+						"display_text": "client-id",
+						"token": "REDIRECT",
+						"flags": ["optional"]
+					},
+					{
+						"name": "prefix",
+						"type": "string",
+						"display_text": "prefix",
+						"token": "PREFIX",
+						"flags": ["optional", "multiple", "multiple_token"]
+					},
+					{
+						"name": "bcast",
+						"type": "pure-token",
+						"display_text": "bcast",
+						"token": "BCAST",
+						"flags": ["optional"]
+					},
+					{
+						"name": "optin",
+						"type": "pure-token",
+						"display_text": "optin",
+						"token": "OPTIN",
+						"flags": ["optional"]
+					},
+					{
+						"name": "optout",
+						"type": "pure-token",
+						"display_text": "optout",
+						"token": "OPTOUT",
+						"flags": ["optional"]
+					},
+					{
+						"name": "noloop",
+						"type": "pure-token",
+						"display_text": "noloop",
+						"token": "NOLOOP",
+						"flags": ["optional"]
+					}
+				]
+			},
+			"client|no-evict": {
+				"summary": "Sets the client eviction mode of the connection.",
+				"since": "7.0.0",
+				"group": "connection",
+				"complexity": "O(1)",
+				"arguments": [
+					{
+						"name": "enabled",
+						"type": "oneof",
+						"arguments": [
+							{
+								"name": "on",
+								"type": "pure-token",
+								"display_text": "on",
+								"token": "ON"
+							},
+							{
+								"name": "off",
+								"type": "pure-token",
+								"display_text": "off",
+								"token": "OFF"
+							}
+						]
+					}
+				]
+			},
+			"client|help": {
+				"summary": "Returns helpful text about the different subcommands.",
+				"since": "5.0.0",
+				"group": "connection",
+				"complexity": "O(1)"
+			},
+			"client|info": {
+				"summary": "Returns information about the connection.",
+				"since": "6.2.0",
+				"group": "connection",
+				"complexity": "O(1)"
+			},
+			"client|no-touch": {
+				"summary": "Controls whether commands sent by the client affect the LRU/LFU of accessed keys.",
+				"since": "7.2.0",
+				"group": "connection",
+				"complexity": "O(1)",
+				"arguments": [
+					{
+						"name": "enabled",
+						"type": "oneof",
+						"arguments": [
+							{
+								"name": "on",
+								"type": "pure-token",
+								"display_text": "on",
+								"token": "ON"
+							},
+							{
+								"name": "off",
+								"type": "pure-token",
+								"display_text": "off",
+								"token": "OFF"
+							}
+						]
+					}
+				]
+			},
+			"client|id": {
+				"summary": "Returns the unique client ID of the connection.",
+				"since": "5.0.0",
+				"group": "connection",
+				"complexity": "O(1)"
+			},
+			"client|caching": {
+				"summary": "Instructs the server whether to track the keys in the next request.",
+				"since": "6.0.0",
+				"group": "connection",
+				"complexity": "O(1)",
+				"arguments": [
+					{
+						"name": "mode",
+						"type": "oneof",
+						"arguments": [
+							{
+								"name": "yes",
+								"type": "pure-token",
+								"display_text": "yes",
+								"token": "YES"
+							},
+							{
+								"name": "no",
+								"type": "pure-token",
+								"display_text": "no",
+								"token": "NO"
+							}
+						]
+					}
+				]
+			},
+			"client|unpause": {
+				"summary": "Resumes processing commands from paused clients.",
+				"since": "6.2.0",
+				"group": "connection",
+				"complexity": "O(N) Where N is the number of paused clients"
+			},
+			"client|unblock": {
+				"summary": "Unblocks a client blocked by a blocking command from a different connection.",
+				"since": "5.0.0",
+				"group": "connection",
+				"complexity": "O(log N) where N is the number of client connections",
+				"arguments": [
+					{
+						"name": "client-id",
+						"type": "integer",
+						"display_text": "client-id"
+					},
+					{
+						"name": "unblock-type",
+						"type": "oneof",
+						"flags": ["optional"],
+						"arguments": [
+							{
+								"name": "timeout",
+								"type": "pure-token",
+								"display_text": "timeout",
+								"token": "TIMEOUT"
+							},
+							{
+								"name": "error",
+								"type": "pure-token",
+								"display_text": "error",
+								"token": "ERROR"
+							}
+						]
+					}
+				]
+			}
+		}
+	},
+	"json.set": {
+		"summary": "Set the JSON value at path in key",
+		"since": "1.0.0",
+		"group": "module",
+		"complexity": "O(M+N) where M is the size of the original value (if it exists) and N is the size of the new value",
+		"module": "ReJSON",
+		"arguments": [
+			{
+				"name": "key",
+				"type": "key",
+				"display_text": "key",
+				"key_spec_index": 0
+			},
+			{
+				"name": "path",
+				"type": "string",
+				"display_text": "path"
+			},
+			{
+				"name": "json",
+				"type": "string",
+				"display_text": "json"
+			},
+			{
+				"name": "condition",
+				"type": "oneof",
+				"flags": ["optional"],
+				"arguments": [
+					{
+						"name": "nx",
+						"type": "pure-token",
+						"display_text": "nx",
+						"token": "NX"
+					},
+					{
+						"name": "xx",
+						"type": "pure-token",
+						"display_text": "xx",
+						"token": "XX"
+					}
+				]
+			},
+			{
+				"name": "fpha",
+				"type": "block",
+				"token": "FPHA",
+				"flags": ["optional"],
+				"arguments": [
+					{
+						"name": "fpha-type",
+						"type": "oneof",
+						"arguments": [
+							{
+								"name": "BF16",
+								"type": "pure-token",
+								"display_text": "BF16",
+								"token": "BF16"
+							},
+							{
+								"name": "FP16",
+								"type": "pure-token",
+								"display_text": "FP16",
+								"token": "FP16"
+							},
+							{
+								"name": "FP32",
+								"type": "pure-token",
+								"display_text": "FP32",
+								"token": "FP32"
+							},
+							{
+								"name": "FP64",
+								"type": "pure-token",
+								"display_text": "FP64",
+								"token": "FP64"
+							}
+						]
+					}
+				]
+			},
+			{
+				"name": "format",
+				"type": "block",
+				"token": "FORMAT",
+				"flags": ["optional"],
+				"arguments": [
+					{
+						"name": "format-token",
+						"type": "oneof",
+						"arguments": [
+							{
+								"name": "STRING",
+								"type": "pure-token",
+								"display_text": "STRING",
+								"token": "STRING"
+							},
+							{
+								"name": "JSON",
+								"type": "pure-token",
+								"display_text": "JSON",
+								"token": "JSON"
+							},
+							{
+								"name": "BSON",
+								"type": "pure-token",
+								"display_text": "BSON",
+								"token": "BSON"
+							}
+						]
+					}
+				]
+			}
+		]
+	},
+	"json.get": {
+		"summary": "Get JSON value at path",
+		"since": "1.0.0",
+		"group": "module",
+		"complexity": "O(N) where N is the size of the JSON",
+		"module": "ReJSON",
+		"arguments": [
+			{
+				"name": "key",
+				"type": "key",
+				"display_text": "key",
+				"key_spec_index": 0
+			},
+			{
+				"name": "indent",
+				"type": "block",
+				"token": "INDENT",
+				"flags": ["optional"],
+				"arguments": [
+					{
+						"name": "indent",
+						"type": "string",
+						"display_text": "indent"
+					}
+				]
+			},
+			{
+				"name": "newline",
+				"type": "block",
+				"token": "NEWLINE",
+				"flags": ["optional"],
+				"arguments": [
+					{
+						"name": "newline",
+						"type": "string",
+						"display_text": "newline"
+					}
+				]
+			},
+			{
+				"name": "space",
+				"type": "block",
+				"token": "SPACE",
+				"flags": ["optional"],
+				"arguments": [
+					{
+						"name": "space",
+						"type": "string",
+						"display_text": "space"
+					}
+				]
+			},
+			{
+				"name": "format",
+				"type": "block",
+				"token": "FORMAT",
+				"flags": ["optional"],
+				"arguments": [
+					{
+						"name": "format-token",
+						"type": "oneof",
+						"arguments": [
+							{
+								"name": "STRING",
+								"type": "pure-token",
+								"display_text": "STRING",
+								"token": "STRING"
+							},
+							{
+								"name": "EXPAND1",
+								"type": "pure-token",
+								"display_text": "EXPAND1",
+								"token": "EXPAND1"
+							},
+							{
+								"name": "EXPAND",
+								"type": "pure-token",
+								"display_text": "EXPAND",
+								"token": "EXPAND"
+							}
+						]
+					}
+				]
+			},
+			{
+				"name": "path",
+				"type": "string",
+				"display_text": "path",
+				"flags": ["optional", "multiple"]
+			}
+		]
+	},
+	"hset": {
+		"summary": "Creates or modifies the value of a field in a hash.",
+		"since": "2.0.0",
+		"group": "hash",
+		"complexity": "O(1) for each field/value pair added, so O(N) to add N field/value pairs when the command is called with multiple field/value pairs.",
+		"history": [["4.0.0", "Accepts multiple `field` and `value` arguments."]],
+		"arguments": [
+			{
+				"name": "key",
+				"type": "key",
+				"display_text": "key",
+				"key_spec_index": 0
+			},
+			{
+				"name": "data",
+				"type": "block",
+				"flags": ["multiple"],
+				"arguments": [
+					{
+						"name": "field",
+						"type": "string",
+						"display_text": "field"
+					},
+					{
+						"name": "value",
+						"type": "string",
+						"display_text": "value"
+					}
+				]
+			}
+		]
+	},
+	"sort": {
+		"summary": "Sorts the elements in a list, a set, or a sorted set, optionally storing the result.",
+		"since": "1.0.0",
+		"group": "generic",
+		"complexity": "O(N+M*log(M)) where N is the number of elements in the list or set to sort, and M the number of returned elements. When the elements are not sorted, complexity is O(N).",
+		"arguments": [
+			{
+				"name": "key",
+				"type": "key",
+				"display_text": "key",
+				"key_spec_index": 0
+			},
+			{
+				"name": "by-pattern",
+				"type": "pattern",
+				"display_text": "pattern",
+				"key_spec_index": 1,
+				"token": "BY",
+				"flags": ["optional"]
+			},
+			{
+				"name": "limit",
+				"type": "block",
+				"token": "LIMIT",
+				"flags": ["optional"],
+				"arguments": [
+					{
+						"name": "offset",
+						"type": "integer",
+						"display_text": "offset"
+					},
+					{
+						"name": "count",
+						"type": "integer",
+						"display_text": "count"
+					}
+				]
+			},
+			{
+				"name": "get-pattern",
+				"type": "pattern",
+				"display_text": "pattern",
+				"key_spec_index": 1,
+				"token": "GET",
+				"flags": ["optional", "multiple", "multiple_token"]
+			},
+			{
+				"name": "order",
+				"type": "oneof",
+				"flags": ["optional"],
+				"arguments": [
+					{
+						"name": "asc",
+						"type": "pure-token",
+						"display_text": "asc",
+						"token": "ASC"
+					},
+					{
+						"name": "desc",
+						"type": "pure-token",
+						"display_text": "desc",
+						"token": "DESC"
+					}
+				]
+			},
+			{
+				"name": "sorting",
+				"type": "pure-token",
+				"display_text": "sorting",
+				"token": "ALPHA",
+				"flags": ["optional"]
+			},
+			{
+				"name": "destination",
+				"type": "key",
+				"display_text": "destination",
+				"key_spec_index": 2,
+				"token": "STORE",
+				"flags": ["optional"]
+			}
+		]
+	},
+	"lpos": {
+		"summary": "Returns the index of matching elements in a list.",
+		"since": "6.0.6",
+		"group": "list",
+		"complexity": "O(N) where N is the number of elements in the list, for the average case. When searching for elements near the head or the tail of the list, or when the MAXLEN option is provided, the command may run in constant time.",
+		"arguments": [
+			{
+				"name": "key",
+				"type": "key",
+				"display_text": "key",
+				"key_spec_index": 0
+			},
+			{
+				"name": "element",
+				"type": "string",
+				"display_text": "element"
+			},
+			{
+				"name": "rank",
+				"type": "integer",
+				"display_text": "rank",
+				"token": "RANK",
+				"flags": ["optional"]
+			},
+			{
+				"name": "num-matches",
+				"type": "integer",
+				"display_text": "num-matches",
+				"token": "COUNT",
+				"flags": ["optional"]
+			},
+			{
+				"name": "len",
+				"type": "integer",
+				"display_text": "len",
+				"token": "MAXLEN",
+				"flags": ["optional"]
+			}
+		]
+	},
+	"expire": {
+		"summary": "Sets the expiration time of a key in seconds.",
+		"since": "1.0.0",
+		"group": "generic",
+		"complexity": "O(1)",
+		"history": [["7.0.0", "Added options: `NX`, `XX`, `GT` and `LT`."]],
+		"arguments": [
+			{
+				"name": "key",
+				"type": "key",
+				"display_text": "key",
+				"key_spec_index": 0
+			},
+			{
+				"name": "seconds",
+				"type": "integer",
+				"display_text": "seconds"
+			},
+			{
+				"name": "condition",
+				"type": "oneof",
+				"since": "7.0.0",
+				"flags": ["optional"],
+				"arguments": [
+					{
+						"name": "nx",
+						"type": "pure-token",
+						"display_text": "nx",
+						"token": "NX"
+					},
+					{
+						"name": "xx",
+						"type": "pure-token",
+						"display_text": "xx",
+						"token": "XX"
+					},
+					{
+						"name": "gt",
+						"type": "pure-token",
+						"display_text": "gt",
+						"token": "GT"
+					},
+					{
+						"name": "lt",
+						"type": "pure-token",
+						"display_text": "lt",
+						"token": "LT"
+					}
+				]
+			}
+		]
+	},
+	"bzmpop": {
+		"summary": "Removes and returns a member by score from one or more sorted sets. Blocks until a member is available otherwise. Deletes the sorted set if the last element was popped.",
+		"since": "7.0.0",
+		"group": "sorted-set",
+		"complexity": "O(K) + O(M*log(N)) where K is the number of provided keys, N being the number of elements in the sorted set, and M being the number of elements popped.",
+		"arguments": [
+			{
+				"name": "timeout",
+				"type": "double",
+				"display_text": "timeout"
+			},
+			{
+				"name": "numkeys",
+				"type": "integer",
+				"display_text": "numkeys"
+			},
+			{
+				"name": "key",
+				"type": "key",
+				"display_text": "key",
+				"key_spec_index": 0,
+				"flags": ["multiple"]
+			},
+			{
+				"name": "where",
+				"type": "oneof",
+				"arguments": [
+					{
+						"name": "min",
+						"type": "pure-token",
+						"display_text": "min",
+						"token": "MIN"
+					},
+					{
+						"name": "max",
+						"type": "pure-token",
+						"display_text": "max",
+						"token": "MAX"
+					}
+				]
+			},
+			{
+				"name": "count",
+				"type": "integer",
+				"display_text": "count",
+				"token": "COUNT",
+				"flags": ["optional"]
+			}
+		]
+	},
+	"object": {
+		"summary": "A container for object introspection commands.",
+		"since": "2.2.3",
+		"group": "generic",
+		"complexity": "Depends on subcommand.",
+		"subcommands": {
+			"object|idletime": {
+				"summary": "Returns the time since the last access to a Redis object.",
+				"since": "2.2.3",
+				"group": "generic",
+				"complexity": "O(1)",
+				"arguments": [
+					{
+						"name": "key",
+						"type": "key",
+						"display_text": "key",
+						"key_spec_index": 0
+					}
+				]
+			},
+			"object|refcount": {
+				"summary": "Returns the reference count of a value of a key.",
+				"since": "2.2.3",
+				"group": "generic",
+				"complexity": "O(1)",
+				"arguments": [
+					{
+						"name": "key",
+						"type": "key",
+						"display_text": "key",
+						"key_spec_index": 0
+					}
+				]
+			},
+			"object|encoding": {
+				"summary": "Returns the internal encoding of a Redis object.",
+				"since": "2.2.3",
+				"group": "generic",
+				"complexity": "O(1)",
+				"arguments": [
+					{
+						"name": "key",
+						"type": "key",
+						"display_text": "key",
+						"key_spec_index": 0
+					}
+				]
+			},
+			"object|freq": {
+				"summary": "Returns the logarithmic access frequency counter of a Redis object.",
+				"since": "4.0.0",
+				"group": "generic",
+				"complexity": "O(1)",
+				"arguments": [
+					{
+						"name": "key",
+						"type": "key",
+						"display_text": "key",
+						"key_spec_index": 0
+					}
+				]
+			},
+			"object|help": {
+				"summary": "Returns helpful text about the different subcommands.",
+				"since": "6.2.0",
+				"group": "generic",
+				"complexity": "O(1)"
+			}
+		}
+	},
+	"restore": {
+		"summary": "Creates a key from the serialized representation of a value.",
+		"since": "2.6.0",
+		"group": "generic",
+		"complexity": "O(1) to create the new key and additional O(N*M) to reconstruct the serialized value, where N is the number of Redis objects composing the value and M their average size. For small string values the time complexity is thus O(1)+O(1*M) where M is small, so simply O(1). However for sorted set values the complexity is O(N*M*log(N)) because inserting values into sorted sets is O(log(N)).",
+		"history": [
+			["3.0.0", "Added the `REPLACE` modifier."],
+			["5.0.0", "Added the `ABSTTL` modifier."],
+			["5.0.0", "Added the `IDLETIME` and `FREQ` options."]
+		],
+		"arguments": [
+			{
+				"name": "key",
+				"type": "key",
+				"display_text": "key",
+				"key_spec_index": 0
+			},
+			{
+				"name": "ttl",
+				"type": "integer",
+				"display_text": "ttl"
+			},
+			{
+				"name": "serialized-value",
+				"type": "string",
+				"display_text": "serialized-value"
+			},
+			{
+				"name": "replace",
+				"type": "pure-token",
+				"display_text": "replace",
+				"token": "REPLACE",
+				"since": "3.0.0",
+				"flags": ["optional"]
+			},
+			{
+				"name": "absttl",
+				"type": "pure-token",
+				"display_text": "absttl",
+				"token": "ABSTTL",
+				"since": "5.0.0",
+				"flags": ["optional"]
+			},
+			{
+				"name": "seconds",
+				"type": "integer",
+				"display_text": "seconds",
+				"token": "IDLETIME",
+				"since": "5.0.0",
+				"flags": ["optional"]
+			},
+			{
+				"name": "frequency",
+				"type": "integer",
+				"display_text": "frequency",
+				"token": "FREQ",
+				"since": "5.0.0",
+				"flags": ["optional"]
+			}
+		]
+	}
+}

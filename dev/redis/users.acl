@@ -1,0 +1,8 @@
+# Mirrors the ACL the production image (blaze/redis-tls) applies at startup.
+#
+# `default` is the tenant: every key, every channel, every command except the ones that
+# would let it rewrite its own quota (CONFIG), its own or blaze's credentials (ACL), or
+# turn the container into a replica of somewhere else (REPLICAOF / SLAVEOF).
+# `blazeadmin` is blaze itself, used for stats, suspension and password rotation.
+user default on >devpassword-cache ~* &* +@all -config -acl -replicaof -slaveof
+user blazeadmin on >devpassword-blazeadmin ~* &* +@all

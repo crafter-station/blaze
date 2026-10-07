@@ -9,7 +9,11 @@
 # the way they do for real tenants. Host ports are deliberately off the defaults so this
 # never collides with a Postgres or MySQL already running on the machine.
 #
-# See README → "Local SQL engines".
+# Plus one Redis 8 configured like a dedicated tenant container (blaze/redis-tls): TLS is
+# the only listener, 64 MB `maxmemory` with `noeviction`, append-only persistence, and the
+# tenant is the ACL user `default`.
+#
+# See README → "Local SQL engines" and "Local Redis".
 
 name: blaze-dev
 
@@ -94,9 +98,69 @@ services:
     volumes:
       - libsql:/var/lib/sqld
 
+  # Generates the self-signed certificate the Redis TLS listener presents, once, into a
+  # volume. Uses the postgres image only because it already ships openssl; redis:8 does not.
+  redis-certs:
+    image: postgres:18
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if [ ! -s /tls/redis.crt ]; then
+          openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -subj /CN=blaze-dev-redis             -keyout /tls/redis.key -out /tls/redis.crt
+        fi
+        chmod 644 /tls/redis.key /tls/redis.crt
+    volumes:
+      - redis-tls:/tls
+
+  redis:
+    image: redis:8
+    depends_on:
+      redis-certs:
+        condition: service_completed_successfully
+    # Starts through the image's own entrypoint, which appends `--loadmodule` for every
+    # bundled module (JSON, Search, TimeSeries, Bloom). `--port 0` closes plaintext.
+    command:
+      - redis-server
+      - --port
+      - "0"
+      - --tls-port
+      - "6379"
+      - --tls-cert-file
+      - /tls/redis.crt
+      - --tls-key-file
+      - /tls/redis.key
+      - --tls-ca-cert-file
+      - /tls/redis.crt
+      - --tls-auth-clients
+      - "no"
+      - --maxmemory
+      - "67108864"
+      - --maxmemory-policy
+      - noeviction
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --aclfile
+      - /etc/redis/users.acl
+    ports:
+      - "127.0.0.1:63791:6379"
+    volumes:
+      - redis:/data
+      - redis-tls:/tls:ro
+      - ./dev/redis/users.acl:/etc/redis/users.acl:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - redis-cli --tls --insecure --user blazeadmin --pass devpassword-blazeadmin --no-auth-warning ping | grep -q PONG
+      interval: 2s
+      retries: 30
+
 volumes:
   control:
   postgres:
   mysql:
   mariadb:
   libsql:
+  redis:
+  redis-tls:

@@ -4,13 +4,15 @@
  *   docker compose -f docker-compose.dev.yaml up -d
  *   bun run dev:seed -- --email blaze-ui-test+clerk_test@example.com
  *
- * Three things, all idempotent:
+ * Four things, all idempotent:
  *
  *  1. applies the Drizzle migrations to the **local** control database;
  *  2. creates the same small shop schema in every SQL engine, connected as the tenant role
  *     so ownership and grants match a real tenant (FKs, indexes, a JSON column, NULLs,
  *     ~1.2k orders and ~3k order items);
- *  3. registers a node, one instance per engine and one database per engine in the control
+ *  3. fills the local Redis, as its `default` user, with every data type the key browser
+ *     renders (see dev-seed-redis.ts);
+ *  4. registers a node, one instance per engine and one database per engine in the control
  *     database, owned by the Clerk user with that email.
  *
  * Instance rows carry production-shaped hosts (`blaze-dev-postgres:5433`), not the local
@@ -28,6 +30,7 @@ import mysql from "mysql2/promise";
 import { Client } from "pg";
 import { encryptSecret } from "@/lib/crypto";
 import { ENGINE_CONFIG, type Engine } from "@/lib/engines/types";
+import { REDIS_ADMIN_PASSWORD, REDIS_TENANT, seedRedis } from "./dev-seed-redis";
 
 const CONTROL_URL = process.env.DEV_CONTROL_URL || "postgresql://blaze:blaze@127.0.0.1:54320/blaze";
 const TENANT = { db: "db_shop_dev", role: "u_shop_dev", password: "devpassword-shop" };
@@ -46,6 +49,14 @@ const DATABASE_IDS: Record<SqlEngine, string> = {
 	mysql: "db_shopdevmysq2",
 	mariadb: "db_shopdevmria2",
 	libsql: "db_shopdevsqit2",
+};
+
+/** The dedicated Redis tenant: its own instance row, as a real one would have. */
+const REDIS_DATABASE = {
+	id: "db_cachedevrds2",
+	slug: "cache-redis",
+	dbName: "db_cache_dev",
+	roleName: "u_cache_dev",
 };
 
 function arg(name: string): string | undefined {
@@ -636,6 +647,32 @@ async function registerControlRows(email: string) {
 			);
 			console.log(`  ${engine.padEnd(8)} /databases/${DATABASE_IDS[engine]}/sql`);
 		}
+
+		// Redis is dedicated: one instance row per tenant, holding blaze's admin password,
+		// and the tenant connects as `default` with its own.
+		await control.query(
+			`INSERT INTO instances (id, node_id, engine, tenancy, version, internal_host, port, admin_user, admin_password_enc, capacity, status)
+			 VALUES ('inst_devredis', 'node_devlocal', 'redis', 'dedicated', 'redis:8', 'blaze-dev-redis', $1, 'blazeadmin', $2, 1, 'active')
+			 ON CONFLICT (id) DO UPDATE SET internal_host = EXCLUDED.internal_host, port = EXCLUDED.port,
+			   admin_password_enc = EXCLUDED.admin_password_enc`,
+			[ENGINE_CONFIG.redis.port, encryptSecret(REDIS_ADMIN_PASSWORD)],
+		);
+		await control.query(
+			`INSERT INTO databases (id, project_id, owner_user_id, slug, name, engine, tenancy, instance_id, db_name, role_name, password_enc, status)
+			 VALUES ($1, $2, $3, $4, $4, 'redis', 'dedicated', 'inst_devredis', $5, $6, $7, 'active')
+			 ON CONFLICT (id) DO UPDATE SET owner_user_id = EXCLUDED.owner_user_id, project_id = EXCLUDED.project_id,
+			   password_enc = EXCLUDED.password_enc, status = 'active', deleted_at = NULL`,
+			[
+				REDIS_DATABASE.id,
+				projectId,
+				userId,
+				REDIS_DATABASE.slug,
+				REDIS_DATABASE.dbName,
+				REDIS_DATABASE.roleName,
+				encryptSecret(REDIS_TENANT.password),
+			],
+		);
+		console.log(`  redis    /databases/${REDIS_DATABASE.id}/browser`);
 	} finally {
 		await control.end();
 	}
@@ -645,7 +682,7 @@ async function registerControlRows(email: string) {
 
 assertLocal(CONTROL_URL);
 const email = arg("email") ?? process.env.E2E_EMAIL;
-const only = arg("only")?.split(",") as SqlEngine[] | undefined;
+const only = arg("only")?.split(",") as (SqlEngine | "redis")[] | undefined;
 
 console.log("control: migrating");
 await retry("control database", async () => {
@@ -662,7 +699,8 @@ const data = buildData();
 console.log(
 	`tenants: ${data.customers.length} customers, ${data.products.length} products, ${data.orders.length} orders, ${data.items.length} items`,
 );
-for (const engine of (only ?? (Object.keys(LOCAL) as SqlEngine[])) as SqlEngine[]) {
+for (const engine of (only?.filter((e) => e !== "redis") ??
+	(Object.keys(LOCAL) as SqlEngine[])) as SqlEngine[]) {
 	const statements = script(engine, data);
 	await retry(engine, () => {
 		if (engine === "postgres") return seedPostgres(statements);
@@ -670,6 +708,11 @@ for (const engine of (only ?? (Object.keys(LOCAL) as SqlEngine[])) as SqlEngine[
 		return seedMysql(engine, statements);
 	});
 	console.log(`  ${engine} seeded`);
+}
+
+if (!only || only.includes("redis")) {
+	const { keys } = await retry("redis", seedRedis);
+	console.log(`  redis seeded (${keys} keys)`);
 }
 
 if (email) {
