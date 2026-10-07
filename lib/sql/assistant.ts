@@ -25,10 +25,15 @@ import type { SqlEngine } from "./types";
  */
 
 /**
- * GPT-6.1 Sol: OpenAI's frontier reasoning model at a fifth of Astra's price, which is
- * the right trade for short SQL answers. Overridable per deployment with OPENAI_MODEL.
+ * GPT-6.1 Sol: OpenAI's frontier reasoning model at a tenth of Astra's price, which is
+ * the right trade for short answers. Overridable per deployment with OPENAI_MODEL.
+ *
+ * A function, not a constant: `env` validates the whole environment on first read, and a
+ * module-level read runs during `next build`, which has no secrets (see lib/env.ts).
  */
-export const ASSISTANT_MODEL = env.OPENAI_MODEL ?? "gpt-6.1-sol";
+export function assistantModel(): string {
+	return env.OPENAI_MODEL ?? "gpt-6.1-sol";
+}
 
 export type AssistantMode = "generate" | "explain" | "fix";
 
@@ -206,7 +211,7 @@ export async function streamAssistant(
 			try {
 				const stream = await openai().responses.create(
 					{
-						model: ASSISTANT_MODEL,
+						model: assistantModel(),
 						instructions,
 						input,
 						reasoning: { effort: "medium" },
