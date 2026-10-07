@@ -4,6 +4,14 @@ import { requireUser } from "@/lib/auth";
 import { ENGINE_CONFIG } from "@/lib/engines/types";
 import { getOwnedDatabase } from "@/lib/provision";
 import { MAX_BATCH_STATEMENTS, runTenantBatch } from "@/lib/query";
+import {
+	createSavedQuery,
+	deleteSavedQuery,
+	listSavedQueries,
+	SavedQueryError,
+	type SavedQueryView,
+	updateSavedQuery,
+} from "@/lib/saved-queries";
 import { introspectSchema, tableDdl } from "@/lib/sql/introspect";
 import type { BatchOutcome, SchemaSnapshot } from "@/lib/sql/types";
 
@@ -18,14 +26,19 @@ import type { BatchOutcome, SchemaSnapshot } from "@/lib/sql/types";
 
 type Owned = NonNullable<Awaited<ReturnType<typeof getOwnedDatabase>>>;
 
+/**
+ * @param connect when true (the default) the database must also be usable right now;
+ *        saved queries only need ownership, so they keep working on a suspended database.
+ */
 async function ownedSqlDatabase(
 	databaseId: string,
+	connect = true,
 ): Promise<{ record: Owned } | { error: string }> {
 	const user = await requireUser();
 	const record = await getOwnedDatabase(user.id, String(databaseId));
 	if (!record) return { error: "Database not found" };
 	if (!ENGINE_CONFIG[record.engine].hasSql) return { error: "This engine has no SQL console" };
-	if (record.status === "suspended") {
+	if (connect && record.status === "suspended") {
 		return { error: "This database is suspended. Free storage to resume it." };
 	}
 	return { record };
@@ -90,4 +103,49 @@ export async function runSqlAction(
 
 	const results = await runTenantBatch(owned.record, list);
 	return { ok: results.every((r) => r.ok), results };
+}
+
+/* ------------------------------------------------------------------ *
+ * Saved queries
+ * ------------------------------------------------------------------ */
+
+type SavedResult<T> = { ok: true } & T;
+type Failure = { ok: false; error: string };
+
+export async function listSavedQueriesAction(
+	databaseId: string,
+): Promise<SavedResult<{ queries: SavedQueryView[] }> | Failure> {
+	const owned = await ownedSqlDatabase(databaseId, false);
+	if ("error" in owned) return { ok: false, error: owned.error };
+	return { ok: true, queries: await listSavedQueries(owned.record.ownerUserId, owned.record.id) };
+}
+
+/** Creates a saved query, or updates it when `id` is given. */
+export async function saveQueryAction(
+	databaseId: string,
+	input: { id?: string; name: string; sql: string },
+): Promise<SavedResult<{ query: SavedQueryView }> | Failure> {
+	const owned = await ownedSqlDatabase(databaseId, false);
+	if ("error" in owned) return { ok: false, error: owned.error };
+	const { ownerUserId, id } = owned.record;
+	const values = { name: String(input?.name ?? ""), sql: String(input?.sql ?? "") };
+	try {
+		const query = input?.id
+			? await updateSavedQuery(ownerUserId, id, String(input.id), values)
+			: await createSavedQuery(ownerUserId, id, values);
+		return { ok: true, query };
+	} catch (error) {
+		if (error instanceof SavedQueryError) return { ok: false, error: error.message };
+		return { ok: false, error: message(error, "Could not save the query") };
+	}
+}
+
+export async function deleteSavedQueryAction(
+	databaseId: string,
+	queryId: string,
+): Promise<SavedResult<object> | Failure> {
+	const owned = await ownedSqlDatabase(databaseId, false);
+	if ("error" in owned) return { ok: false, error: owned.error };
+	await deleteSavedQuery(owned.record.ownerUserId, owned.record.id, String(queryId));
+	return { ok: true };
 }

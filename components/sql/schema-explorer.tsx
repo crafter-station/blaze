@@ -9,7 +9,6 @@ import {
 	Eye,
 	KeyRound,
 	Link2,
-	ListTree,
 	MoreHorizontal,
 	Play,
 	RefreshCw,
@@ -105,30 +104,8 @@ export function SchemaExplorer({
 
 	return (
 		<div className={cn("flex min-h-0 flex-col", className)}>
-			<div className="flex h-10 shrink-0 items-center justify-between gap-2 border-border border-b pr-1.5 pl-3">
-				<p className="flex items-center gap-2 font-medium text-[0.8125rem]">
-					<ListTree className="size-3.5 text-muted-foreground" />
-					Schema
-					{snapshot && (
-						<span className="font-normal text-muted-foreground text-xs tabular-nums">
-							{tableCount}
-						</span>
-					)}
-				</p>
-				<Button
-					variant="ghost"
-					size="icon-sm"
-					onClick={onRefresh}
-					disabled={loading}
-					aria-label="Refresh schema"
-					title="Refresh schema"
-				>
-					<RefreshCw className={cn(loading && "animate-spin motion-reduce:animate-none")} />
-				</Button>
-			</div>
-
-			<div className="shrink-0 p-2">
-				<label className="relative block">
+			<div className="flex shrink-0 items-center gap-1 p-2">
+				<label className="relative block flex-1">
 					<span className="sr-only">Filter tables and columns</span>
 					<Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
 					<input
@@ -141,6 +118,16 @@ export function SchemaExplorer({
 						className="h-8 w-full rounded-md border border-input bg-background pr-2 pl-8 text-[0.8125rem] outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25"
 					/>
 				</label>
+				<Button
+					variant="ghost"
+					size="icon-sm"
+					onClick={onRefresh}
+					disabled={loading}
+					aria-label={`Refresh schema${snapshot ? ` (${tableCount} tables)` : ""}`}
+					title="Refresh schema"
+				>
+					<RefreshCw className={cn(loading && "animate-spin motion-reduce:animate-none")} />
+				</Button>
 			</div>
 
 			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 pb-3">

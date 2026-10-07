@@ -64,6 +64,8 @@ async function waitIdle(page) {
 }
 
 async function shot(page, name, mode, width) {
+	// Menus and dialogs animate in; capture them settled.
+	await page.waitForTimeout(350);
 	const file = join(out, `${name}.${mode}.${width}.png`);
 	await page.screenshot({ path: file });
 	log("  ", file);
@@ -202,6 +204,49 @@ for (const mode of modes) {
 				await page.waitForTimeout(400);
 				check((await page.locator("[data-plan-node]").count()) > 0, `${tag}: plan tree renders`);
 				await shot(page, `${tag}-explain`, mode, width);
+			}
+
+			if (run("library")) {
+				const name = `e2e ${engine} ${Date.now().toString(36)}`;
+				await setDoc(page, "select status, count(*) from orders group by status;");
+				await page.keyboard.press("Control+Enter");
+				await waitIdle(page);
+				await page.keyboard.press("Control+s");
+				await page.waitForSelector("#saved-query-name", { timeout: 10_000 });
+				await page.fill("#saved-query-name", name);
+				await shot(page, `${tag}-save-dialog`, mode, width);
+				await page.keyboard.press("Enter");
+				await page.waitForSelector("#saved-query-name", { state: "detached", timeout: 10_000 });
+				check((await page.getByRole("tab", { name }).count()) > 0, `${tag}: tab renamed after save`);
+				if (!mobile) {
+					await page.getByRole("tab", { name: "Saved" }).click();
+					await page.waitForTimeout(200);
+					check((await page.getByText(name).count()) > 0, `${tag}: saved query listed`);
+					await shot(page, `${tag}-saved`, mode, width);
+					await page.getByRole("tab", { name: "History" }).click();
+					await page.waitForTimeout(200);
+					check((await page.getByText("group by status").count()) > 0, `${tag}: history lists the run`);
+					await shot(page, `${tag}-history`, mode, width);
+					// Clean up the saved query.
+					await page.getByRole("tab", { name: "Saved" }).click();
+					await page.getByRole("button", { name: `Actions for ${name}` }).click();
+					await page.getByRole("menuitem", { name: "Delete" }).click();
+					await page.getByRole("button", { name: "Delete" }).click();
+					await page.waitForTimeout(400);
+					check((await page.getByText(name, { exact: true }).count()) <= 1, `${tag}: saved query deleted`);
+					await page.getByRole("tab", { name: "Schema" }).click();
+				}
+				await page.keyboard.press("Control+k");
+				await page.waitForSelector('[data-slot="command-input"]', { timeout: 10_000 }).catch(() => {});
+				await page.keyboard.type("prev");
+				await shot(page, `${tag}-palette`, mode, width);
+				await page.keyboard.press("Escape");
+				await page.locator("body").click({ position: { x: 5, y: 300 } }).catch(() => {});
+				await page.keyboard.press("?");
+				await page.waitForTimeout(300);
+				check((await page.getByText("Keyboard shortcuts").count()) > 0, `${tag}: shortcuts dialog`);
+				await shot(page, `${tag}-shortcuts`, mode, width);
+				await page.keyboard.press("Escape");
 			}
 
 			if (run("overview")) {

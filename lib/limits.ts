@@ -40,6 +40,18 @@ export const LIMITS = {
 
 	/** API keys per user. */
 	API_KEYS_PER_USER: 10,
+
+	/** Saved SQL console queries per user, per database. */
+	SAVED_QUERIES_PER_DATABASE: 100,
+
+	/** Longest SQL text a saved query may hold, in characters. */
+	SAVED_QUERY_MAX_CHARS: 100_000,
+
+	/**
+	 * SQL console assistant requests per user per hour. Counted from the audit log, so it
+	 * holds across instances and restarts; the cost it protects is real money per call.
+	 */
+	AI_REQUESTS_PER_HOUR: 40,
 } as const;
 
 /**

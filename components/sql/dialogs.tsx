@@ -1,6 +1,7 @@
 "use client";
 
 import { ClipboardCopy, FilePlus2, TriangleAlert } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import {
 	AlertDialog,
@@ -21,6 +22,8 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { DestructiveFinding } from "@/lib/sql/destructive";
 
 export interface PendingConfirmation {
@@ -147,5 +150,122 @@ export function DdlDialog({
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
+	);
+}
+
+/** Name a query to save it, or rename one that is already saved. */
+export function NameDialog({
+	state,
+	onClose,
+	onSubmit,
+}: {
+	state: { title: string; action: string; initial: string } | null;
+	onClose: () => void;
+	onSubmit: (name: string) => Promise<string | null>;
+}) {
+	const [error, setError] = useState<string | null>(null);
+	const [busy, setBusy] = useState(false);
+
+	return (
+		<Dialog
+			open={!!state}
+			onOpenChange={(open) => {
+				if (!open) {
+					setError(null);
+					onClose();
+				}
+			}}
+		>
+			<DialogContent className="sm:max-w-md">
+				<form
+					className="grid gap-4"
+					onSubmit={async (event) => {
+						event.preventDefault();
+						const name = String(new FormData(event.currentTarget).get("name") ?? "").trim();
+						if (!name) {
+							setError("Give the query a name.");
+							return;
+						}
+						setBusy(true);
+						const failure = await onSubmit(name);
+						setBusy(false);
+						if (failure) setError(failure);
+						else {
+							setError(null);
+							onClose();
+						}
+					}}
+				>
+					<DialogHeader>
+						<DialogTitle>{state?.title}</DialogTitle>
+						<DialogDescription>
+							Saved queries are private to you and this database.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="grid gap-2">
+						<Label htmlFor="saved-query-name">Name</Label>
+						<Input
+							id="saved-query-name"
+							name="name"
+							defaultValue={state?.initial}
+							maxLength={120}
+							autoComplete="off"
+							spellCheck={false}
+							autoFocus
+							aria-invalid={!!error}
+							aria-describedby={error ? "saved-query-error" : undefined}
+						/>
+						{error && (
+							<p id="saved-query-error" role="alert" className="text-destructive text-xs">
+								{error}
+							</p>
+						)}
+					</div>
+					<DialogFooter>
+						<Button type="button" variant="outline" onClick={onClose}>
+							Cancel
+						</Button>
+						<Button type="submit" disabled={busy}>
+							{busy ? "Saving…" : state?.action}
+						</Button>
+					</DialogFooter>
+				</form>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+export function ConfirmDelete({
+	name,
+	onClose,
+	onConfirm,
+}: {
+	name: string | null;
+	onClose: () => void;
+	onConfirm: () => void;
+}) {
+	return (
+		<AlertDialog open={!!name} onOpenChange={(open) => !open && onClose()}>
+			<AlertDialogContent className="sm:max-w-md">
+				<AlertDialogHeader>
+					<AlertDialogTitle>Delete “{name}”?</AlertDialogTitle>
+					<AlertDialogDescription>
+						The saved query is removed for good. Open tabs keep their text.
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter>
+					<AlertDialogCancel>Cancel</AlertDialogCancel>
+					<AlertDialogAction
+						variant="destructive"
+						onClick={() => {
+							onConfirm();
+							onClose();
+						}}
+					>
+						Delete
+					</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
 	);
 }

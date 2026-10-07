@@ -79,12 +79,13 @@ export function compareCells(a: unknown, b: unknown, kind: CellKind): number {
 	return x.localeCompare(y, undefined, { numeric: true, sensitivity: "base" });
 }
 
-/** A starting width that fits the header and typical values, within sane bounds. */
+/** A starting width that fits the header (name, type, menu) and typical values. */
 export function initialWidth(column: ResultColumn, sample: unknown[]): number {
-	const header = column.name.length + Math.min((column.type ?? "").length, 12) * 0.75;
+	const type = Math.min((column.type ?? "").length, 14);
+	const header = column.name.length * 7.2 + (type ? type * 6.2 + 6 : 0) + 54;
 	const values = sample.slice(0, 60).map((v) => Math.min(previewCell(v, 80).length, 60));
 	values.sort((x, y) => x - y);
 	const typical = values.length ? values[Math.floor(values.length * 0.85)] : 4;
-	const chars = Math.max(header, typical, 4);
-	return Math.round(Math.min(Math.max(chars * 7.4 + 32, 84), 380));
+	const body = typical * 7.4 + 28;
+	return Math.round(Math.min(Math.max(header, body, 84), 380));
 }

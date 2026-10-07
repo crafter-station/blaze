@@ -29,7 +29,7 @@ import { Client } from "pg";
 import { encryptSecret } from "@/lib/crypto";
 import { ENGINE_CONFIG, type Engine } from "@/lib/engines/types";
 
-const CONTROL_URL = process.env.DEV_CONTROL_URL ?? "postgresql://blaze:blaze@127.0.0.1:54320/blaze";
+const CONTROL_URL = process.env.DEV_CONTROL_URL || "postgresql://blaze:blaze@127.0.0.1:54320/blaze";
 const TENANT = { db: "db_shop_dev", role: "u_shop_dev", password: "devpassword-shop" };
 
 const LOCAL = {

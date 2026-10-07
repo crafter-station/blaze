@@ -1,12 +1,20 @@
 "use client";
 
 import {
+	Bookmark,
 	ChevronDown,
+	Command as CommandIcon,
+	FilePlus2,
+	History,
+	Keyboard,
+	ListTree,
 	Loader2,
 	PanelLeft,
 	PanelLeftClose,
 	Play,
+	PlayCircle,
 	Plus,
+	Save,
 	WandSparkles,
 	X,
 } from "lucide-react";
@@ -14,8 +22,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { format as formatSql } from "sql-formatter";
 import {
+	deleteSavedQueryAction,
 	introspectAction,
+	listSavedQueriesAction,
 	runSqlAction,
+	saveQueryAction,
 	tableDdlAction,
 } from "@/app/(dashboard)/databases/[id]/sql/actions";
 import { Button } from "@/components/ui/button";
@@ -33,15 +44,25 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "@/components/ui/sheet";
+import type { SavedQueryView } from "@/lib/saved-queries";
 import { detectDestructive } from "@/lib/sql/destructive";
 import { DIALECTS, qualifiedName } from "@/lib/sql/dialect";
 import { locateError } from "@/lib/sql/error-position";
 import { type Statement, splitStatements, statementAt, statementsInRange } from "@/lib/sql/split";
 import type { SchemaSnapshot, SchemaTable, SqlEngine } from "@/lib/sql/types";
 import { cn } from "@/lib/utils";
-import { ConfirmDestructive, DdlDialog, type PendingConfirmation } from "./dialogs";
+import {
+	ConfirmDelete,
+	ConfirmDestructive,
+	DdlDialog,
+	NameDialog,
+	type PendingConfirmation,
+} from "./dialogs";
 import { type EditorApi, type EditorError, type EditorHandlers, SqlCodeEditor } from "./editor";
+import { clearHistory, type HistoryEntry, pushHistory, readHistory } from "./history";
 import { isMacPlatform, useMediaQuery } from "./hooks";
+import { QueryHistory, SavedQueries } from "./library";
+import { CommandPalette, type PaletteAction, ShortcutsDialog } from "./palette";
 import { ResultsPanel, type RunEntry, type RunRecord } from "./results-panel";
 import { SchemaExplorer } from "./schema-explorer";
 
@@ -68,7 +89,13 @@ interface QueryTab {
 	id: string;
 	title: string;
 	sql: string;
+	/** Set when the tab holds a saved query; Save then updates it in place. */
+	savedId?: string;
+	/** SQL as last saved, to show unsaved changes. */
+	savedSql?: string;
 }
+
+type SidePanel = "schema" | "saved" | "history";
 
 interface TabResults {
 	run: RunRecord | null;
@@ -106,7 +133,13 @@ function readTabs(databaseId: string, engine: SqlEngine): { tabs: QueryTab[]; ac
 				const tabs = parsed.tabs
 					.filter((t) => t && typeof t.sql === "string")
 					.slice(0, 20)
-					.map((t) => ({ id: String(t.id), title: String(t.title || "Query"), sql: t.sql }));
+					.map((t) => ({
+						id: String(t.id),
+						title: String(t.title || "Query"),
+						sql: t.sql,
+						savedId: typeof t.savedId === "string" ? t.savedId : undefined,
+						savedSql: typeof t.savedSql === "string" ? t.savedSql : undefined,
+					}));
 				const activeId = tabs.some((t) => t.id === parsed.activeId) ? parsed.activeId : tabs[0].id;
 				return { tabs, activeId };
 			}
@@ -158,11 +191,18 @@ export function SqlConsole(props: ConsoleProps) {
 		[activeId],
 	);
 
-	const openTab = useCallback((sql: string, title?: string) => {
+	const openTab = useCallback((sql: string, title?: string, saved?: SavedQueryView) => {
 		const id = newTabId();
 		setTabs((list) => {
 			const n = list.length + 1;
-			return [...list, { id, title: title ?? `Query ${n}`, sql }].slice(-20);
+			const tab: QueryTab = {
+				id,
+				title: title ?? `Query ${n}`,
+				sql,
+				savedId: saved?.id,
+				savedSql: saved?.sql,
+			};
+			return [...list, tab].slice(-20);
 		});
 		setActiveId(id);
 		return id;
@@ -223,6 +263,124 @@ export function SqlConsole(props: ConsoleProps) {
 	useEffect(() => {
 		if (!schemaCache.has(databaseId)) void loadSchema();
 	}, [databaseId, loadSchema]);
+
+	/* ---------------- saved queries and history ---------------- */
+
+	const [saved, setSaved] = useState<SavedQueryView[] | null>(null);
+	const [savedLoading, setSavedLoading] = useState(false);
+	const [savedError, setSavedError] = useState<string | null>(null);
+	const [history, setHistory] = useState<HistoryEntry[]>([]);
+	const [panel, setPanel] = useState<SidePanel>("schema");
+	const [nameDialog, setNameDialog] = useState<{
+		title: string;
+		action: string;
+		initial: string;
+		submit: (name: string) => Promise<string | null>;
+	} | null>(null);
+	const [deleting, setDeleting] = useState<SavedQueryView | null>(null);
+
+	useEffect(() => {
+		setHistory(readHistory(databaseId));
+	}, [databaseId]);
+
+	const loadSaved = useCallback(async () => {
+		setSavedLoading(true);
+		try {
+			const result = await listSavedQueriesAction(databaseId);
+			if (result.ok) {
+				setSaved(result.queries);
+				setSavedError(null);
+			} else setSavedError(result.error);
+		} catch {
+			setSavedError("Could not load saved queries");
+		} finally {
+			setSavedLoading(false);
+		}
+	}, [databaseId]);
+
+	useEffect(() => {
+		void loadSaved();
+	}, [loadSaved]);
+
+	const openSaved = useCallback(
+		(query: SavedQueryView) => {
+			const existing = tabs.find((t) => t.savedId === query.id);
+			if (existing) setActiveId(existing.id);
+			else openTab(query.sql, query.name, query);
+		},
+		[tabs, openTab],
+	);
+
+	const persist = useCallback(
+		async (tab: QueryTab, name: string, id?: string): Promise<string | null> => {
+			const result = await saveQueryAction(databaseId, { id, name, sql: tab.sql });
+			if (!result.ok) return result.error;
+			const query = result.query;
+			setTabs((list) =>
+				list.map((t) =>
+					t.id === tab.id ? { ...t, title: query.name, savedId: query.id, savedSql: query.sql } : t,
+				),
+			);
+			setSaved((list) => [query, ...(list ?? []).filter((q) => q.id !== query.id)]);
+			toast.success(id ? `Saved “${query.name}”` : `Saved as “${query.name}”`);
+			return null;
+		},
+		[databaseId],
+	);
+
+	const save = useCallback(() => {
+		const tab = tabs.find((t) => t.id === activeIdRef.current);
+		if (!tab) return;
+		if (!tab.sql.trim()) {
+			toast.message("Nothing to save", { description: "Write some SQL first." });
+			return;
+		}
+		if (tab.savedId) {
+			void persist(tab, tab.title, tab.savedId).then((error) => error && toast.error(error));
+			return;
+		}
+		setNameDialog({
+			title: "Save query",
+			action: "Save",
+			initial: /^Query \d+$/.test(tab.title) ? "" : tab.title,
+			submit: (name) => persist(tab, name),
+		});
+	}, [tabs, persist]);
+
+	const rename = useCallback(
+		(query: SavedQueryView) =>
+			setNameDialog({
+				title: "Rename saved query",
+				action: "Rename",
+				initial: query.name,
+				submit: async (name) => {
+					const result = await saveQueryAction(databaseId, { id: query.id, name, sql: query.sql });
+					if (!result.ok) return result.error;
+					setSaved((list) => (list ?? []).map((q) => (q.id === query.id ? result.query : q)));
+					setTabs((list) => list.map((t) => (t.savedId === query.id ? { ...t, title: name } : t)));
+					return null;
+				},
+			}),
+		[databaseId],
+	);
+
+	const remove = useCallback(
+		async (query: SavedQueryView) => {
+			const result = await deleteSavedQueryAction(databaseId, query.id);
+			if (!result.ok) {
+				toast.error(result.error);
+				return;
+			}
+			setSaved((list) => (list ?? []).filter((q) => q.id !== query.id));
+			setTabs((list) =>
+				list.map((t) =>
+					t.savedId === query.id ? { ...t, savedId: undefined, savedSql: undefined } : t,
+				),
+			);
+			toast.success(`Deleted “${query.name}”`);
+		},
+		[databaseId],
+	);
 
 	/* ---------------- execution ---------------- */
 
@@ -302,6 +460,22 @@ export function SqlConsole(props: ConsoleProps) {
 				if (activeTab === -1) activeTab = Math.max(0, record.entries.length - 1);
 			}
 			setResults((map) => ({ ...map, [tabId]: { run: record, active: activeTab, doc } }));
+
+			if (record.entries.length > 0) {
+				const lastRows = [...record.entries].reverse().find((e) => e.outcome.columns.length > 0);
+				setHistory(
+					pushHistory(databaseId, {
+						id: record.id,
+						sql: statements.map((s) => s.text).join(";\n"),
+						at: startedAt,
+						durationMs: (record.finishedAt ?? startedAt) - startedAt,
+						ok: failed === -1,
+						statements: statements.length,
+						rows: lastRows?.outcome.rowCount,
+						error: failed === -1 ? undefined : record.entries[failed].outcome.error,
+					}),
+				);
+			}
 
 			if (failed !== -1 && tabId === activeIdRef.current) markError(record.entries[failed], doc);
 			if (record.entries.some((e) => e.outcome.ok && DDL_VERBS.test(e.text))) void loadSchema();
@@ -392,9 +566,37 @@ export function SqlConsole(props: ConsoleProps) {
 		runAll: () => runStatements(collect("all")),
 		explain: () => toast.message("EXPLAIN is coming in the next step."),
 		format,
-		save: () => {},
-		palette: () => {},
+		save,
+		palette: () => setPaletteOpen(true),
 	};
+
+	/* ---------------- palette and global shortcuts ---------------- */
+
+	const [paletteOpen, setPaletteOpen] = useState(false);
+	const [shortcutsOpen, setShortcutsOpen] = useState(false);
+
+	useEffect(() => {
+		function onKey(event: KeyboardEvent) {
+			const mod = isMacPlatform() ? event.metaKey : event.ctrlKey;
+			if (mod && event.key.toLowerCase() === "k") {
+				event.preventDefault();
+				setPaletteOpen((open) => !open);
+				return;
+			}
+			const target = event.target as HTMLElement | null;
+			const typing =
+				target?.closest(".cm-editor") ||
+				target?.tagName === "INPUT" ||
+				target?.tagName === "TEXTAREA" ||
+				target?.isContentEditable;
+			if (!typing && event.key === "?" && !mod) {
+				event.preventDefault();
+				setShortcutsOpen(true);
+			}
+		}
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, []);
 
 	/* ---------------- explorer actions ---------------- */
 
@@ -405,6 +607,15 @@ export function SqlConsole(props: ConsoleProps) {
 	} | null>(null);
 	const [explorerOpen, setExplorerOpen] = useState(true);
 	const [explorerSheet, setExplorerSheet] = useState(false);
+
+	const showPanel = useCallback(
+		(next: SidePanel) => {
+			setPanel(next);
+			if (desktop) setExplorerOpen(true);
+			else setExplorerSheet(true);
+		},
+		[desktop],
+	);
 
 	const tableActions = useMemo(
 		() => ({
@@ -472,26 +683,166 @@ export function SqlConsole(props: ConsoleProps) {
 	}
 
 	const isPending = pending?.tabId === active.id;
+	const key = mod.replace("+", "");
+	const panels: { id: SidePanel; label: string; icon: typeof ListTree }[] = [
+		{ id: "schema", label: "Schema", icon: ListTree },
+		{ id: "saved", label: "Saved", icon: Bookmark },
+		{ id: "history", label: "History", icon: History },
+	];
 	const explorer = (
-		<SchemaExplorer
-			databaseId={databaseId}
-			engine={engine}
-			snapshot={snapshot}
-			loading={schemaLoading}
-			error={schemaError}
-			onRefresh={() => void loadSchema()}
-			actions={tableActions}
-			className="h-full"
-		/>
+		<div className="flex h-full min-h-0 flex-col">
+			<div
+				role="tablist"
+				aria-label="Side panel"
+				className="flex h-10 shrink-0 items-center gap-0.5 border-border border-b px-1.5"
+			>
+				{panels.map((item) => (
+					<button
+						key={item.id}
+						type="button"
+						role="tab"
+						aria-selected={panel === item.id}
+						onClick={() => setPanel(item.id)}
+						className={cn(
+							"flex h-7 flex-1 items-center justify-center gap-1.5 rounded-md text-xs transition-colors focus-visible:outline-2 focus-visible:outline-ring",
+							panel === item.id
+								? "bg-accent font-medium text-foreground"
+								: "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+						)}
+					>
+						<item.icon className="size-3.5" />
+						{item.label}
+					</button>
+				))}
+			</div>
+			{panel === "schema" ? (
+				<SchemaExplorer
+					databaseId={databaseId}
+					engine={engine}
+					snapshot={snapshot}
+					loading={schemaLoading}
+					error={schemaError}
+					onRefresh={() => void loadSchema()}
+					actions={tableActions}
+					className="min-h-0 flex-1"
+				/>
+			) : panel === "saved" ? (
+				<SavedQueries
+					queries={saved}
+					loading={savedLoading}
+					error={savedError}
+					activeSavedId={active.savedId}
+					onOpen={(query) => {
+						openSaved(query);
+						setExplorerSheet(false);
+					}}
+					onRename={rename}
+					onDelete={setDeleting}
+					saveHint={`${mod}S`}
+				/>
+			) : (
+				<QueryHistory
+					entries={history}
+					onOpen={(entry) => {
+						openTab(`${entry.sql};\n`, "From history");
+						setExplorerSheet(false);
+					}}
+					onClear={() => {
+						clearHistory(databaseId);
+						setHistory([]);
+					}}
+				/>
+			)}
+		</div>
 	);
+
+	const paletteActions: PaletteAction[] = [
+		{
+			id: "run",
+			label: "Run statement or selection",
+			icon: Play,
+			shortcut: `${mod}Enter`,
+			run: () => handlers.current.run(),
+		},
+		{
+			id: "run-all",
+			label: "Run all statements",
+			icon: PlayCircle,
+			shortcut: `⇧${mod}Enter`,
+			run: () => handlers.current.runAll(),
+		},
+		{
+			id: "format",
+			label: "Format SQL",
+			icon: WandSparkles,
+			shortcut: "⇧Alt F",
+			keywords: ["prettify", "beautify"],
+			run: format,
+		},
+		{
+			id: "save",
+			label: active.savedId ? "Save changes" : "Save query",
+			icon: Save,
+			shortcut: `${mod}S`,
+			run: save,
+		},
+		{ id: "new-tab", label: "New query tab", icon: FilePlus2, run: () => openTab("") },
+		{ id: "close-tab", label: "Close this tab", icon: X, run: () => closeTab(active.id) },
+		{ id: "schema", label: "Show schema", icon: ListTree, run: () => showPanel("schema") },
+		{ id: "saved", label: "Show saved queries", icon: Bookmark, run: () => showPanel("saved") },
+		{ id: "history", label: "Show query history", icon: History, run: () => showPanel("history") },
+		{
+			id: "shortcuts",
+			label: "Keyboard shortcuts",
+			icon: Keyboard,
+			shortcut: "?",
+			run: () => setShortcutsOpen(true),
+		},
+	];
+
+	const shortcutGroups = [
+		{
+			title: "Run",
+			items: [
+				{ keys: [key, "Enter"], label: "Run statement at cursor, or the selection" },
+				{ keys: ["Shift", key, "Enter"], label: "Run every statement" },
+			],
+		},
+		{
+			title: "Edit",
+			items: [
+				{ keys: ["Shift", "Alt", "F"], label: "Format SQL (selection or all)" },
+				{ keys: [key, "S"], label: "Save query" },
+				{ keys: ["Ctrl", "Space"], label: "Show completions" },
+				{ keys: [key, "/"], label: "Toggle comment" },
+				{ keys: [key, "F"], label: "Find in editor" },
+			],
+		},
+		{
+			title: "Results grid",
+			items: [
+				{ keys: ["↑", "↓", "←", "→"], label: "Move between cells (Shift extends)" },
+				{ keys: [key, "C"], label: "Copy selection as TSV" },
+				{ keys: [key, "A"], label: "Select every cell" },
+				{ keys: ["Enter"], label: "Inspect the focused row" },
+			],
+		},
+		{
+			title: "Console",
+			items: [
+				{ keys: [key, "K"], label: "Command palette" },
+				{ keys: ["?"], label: "This list" },
+			],
+		},
+	];
 
 	return (
 		<div className="flex flex-col lg:h-[calc(100dvh-3.5rem)]">
 			<div className="flex min-h-0 flex-1">
 				{desktop && explorerOpen && (
 					<aside
-						aria-label="Schema"
-						className="w-[264px] shrink-0 border-border border-r bg-sidebar"
+						aria-label="Schema, saved queries and history"
+						className="w-[272px] shrink-0 border-border border-r bg-sidebar"
 					>
 						{explorer}
 					</aside>
@@ -504,8 +855,8 @@ export function SqlConsole(props: ConsoleProps) {
 							variant="ghost"
 							size="icon-sm"
 							onClick={() => (desktop ? setExplorerOpen((v) => !v) : setExplorerSheet(true))}
-							aria-label={desktop && explorerOpen ? "Hide schema" : "Show schema"}
-							title={desktop && explorerOpen ? "Hide schema" : "Show schema"}
+							aria-label={desktop && explorerOpen ? "Hide side panel" : "Show side panel"}
+							title={desktop && explorerOpen ? "Hide side panel" : "Show side panel"}
 						>
 							{desktop && explorerOpen ? <PanelLeftClose /> : <PanelLeft />}
 						</Button>
@@ -537,7 +888,16 @@ export function SqlConsole(props: ConsoleProps) {
 											{pending?.tabId === tab.id && (
 												<Loader2 className="size-3 animate-spin motion-reduce:animate-none" />
 											)}
+											{tab.savedId && <Bookmark className="size-3 shrink-0" aria-hidden="true" />}
 											<span className="truncate">{tab.title}</span>
+											{tab.savedId && tab.savedSql !== tab.sql && (
+												<span
+													className="size-1.5 shrink-0 rounded-full bg-foreground/50"
+													title="Unsaved changes"
+												>
+													<span className="sr-only">(unsaved changes)</span>
+												</span>
+											)}
 										</button>
 										<button
 											type="button"
@@ -619,11 +979,27 @@ export function SqlConsole(props: ConsoleProps) {
 							<WandSparkles data-icon="inline-start" />
 							<span className="hidden sm:inline">Format</span>
 						</Button>
-						<p className="ml-auto hidden truncate text-[0.6875rem] text-muted-foreground xl:block">
-							Runs as <span className="font-mono text-foreground/80">{roleName}</span> on{" "}
-							<span className="font-mono text-foreground/80">{databaseName}</span> ·{" "}
+						<Button variant="ghost" size="sm" onClick={save} title={`Save query (${mod}S)`}>
+							<Save data-icon="inline-start" />
+							<span className="hidden sm:inline">{active.savedId ? "Save" : "Save as…"}</span>
+						</Button>
+						<p className="ml-auto hidden truncate text-[0.6875rem] text-muted-foreground 2xl:block">
+							Runs as <span className="font-mono text-foreground/80">{roleName}</span> ·{" "}
 							{timeoutSeconds}s timeout · first {maxRows} rows
 						</p>
+						<Button
+							variant="ghost"
+							size="sm"
+							className="ml-auto text-muted-foreground 2xl:ml-0"
+							onClick={() => setPaletteOpen(true)}
+							aria-label="Open command palette"
+						>
+							<CommandIcon data-icon="inline-start" />
+							<span className="hidden md:inline">Commands</span>
+							<kbd className="ml-1 hidden rounded-sm bg-muted px-1 font-sans text-[0.6875rem] md:inline">
+								{mod}K
+							</kbd>
+						</Button>
 					</div>
 
 					<div ref={splitRef} className="flex min-h-0 flex-1 flex-col">
@@ -695,8 +1071,8 @@ export function SqlConsole(props: ConsoleProps) {
 				<Sheet open={explorerSheet} onOpenChange={setExplorerSheet}>
 					<SheetContent side="left" className="w-[88vw] max-w-sm gap-0 p-0" showCloseButton={false}>
 						<SheetHeader className="sr-only">
-							<SheetTitle>Schema</SheetTitle>
-							<SheetDescription>Tables, columns, indexes and foreign keys</SheetDescription>
+							<SheetTitle>Schema, saved queries and history</SheetTitle>
+							<SheetDescription>Tables, columns, saved queries and recent runs</SheetDescription>
 						</SheetHeader>
 						{explorer}
 					</SheetContent>
@@ -704,6 +1080,32 @@ export function SqlConsole(props: ConsoleProps) {
 			)}
 
 			<ConfirmDestructive pending={confirm} onClose={() => setConfirm(null)} />
+			<NameDialog
+				state={nameDialog}
+				onClose={() => setNameDialog(null)}
+				onSubmit={(name) => nameDialog?.submit(name) ?? Promise.resolve(null)}
+			/>
+			<ConfirmDelete
+				name={deleting?.name ?? null}
+				onClose={() => setDeleting(null)}
+				onConfirm={() => deleting && void remove(deleting)}
+			/>
+			<CommandPalette
+				open={paletteOpen}
+				onOpenChange={setPaletteOpen}
+				actions={paletteActions}
+				tables={snapshot?.tables ?? []}
+				saved={saved ?? []}
+				history={history}
+				onPreviewTable={tableActions.selectStar}
+				onOpenSaved={openSaved}
+				onOpenHistory={(entry) => openTab(`${entry.sql};\n`, "From history")}
+			/>
+			<ShortcutsDialog
+				open={shortcutsOpen}
+				onOpenChange={setShortcutsOpen}
+				groups={shortcutGroups}
+			/>
 			<DdlDialog
 				state={ddl}
 				onClose={() => setDdl(null)}

@@ -9,7 +9,7 @@ import { randomBytes } from "node:crypto";
  */
 const ALPHABET = "abcdefghijkmnopqrstuvwxyz23456789";
 
-export type IdPrefix = "usr" | "proj" | "db" | "node" | "inst" | "key" | "bkp";
+export type IdPrefix = "usr" | "proj" | "db" | "node" | "inst" | "key" | "bkp" | "sq";
 
 export function newId(prefix: IdPrefix, length = 12): string {
 	const bytes = randomBytes(length);

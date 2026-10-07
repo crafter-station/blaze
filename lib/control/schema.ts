@@ -283,6 +283,32 @@ export const auditLog = pgTable(
 );
 
 /* ------------------------------------------------------------------ *
+ * SQL console
+ * ------------------------------------------------------------------ */
+
+/**
+ * Queries a user saved from the SQL console, scoped to one database. The SQL text is the
+ * user's own; it never contains credentials (the console has none to give it).
+ */
+export const savedQueries = pgTable(
+	"saved_queries",
+	{
+		id: text("id").primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		databaseId: text("database_id")
+			.notNull()
+			.references(() => databases.id, { onDelete: "cascade" }),
+		name: text("name").notNull(),
+		sql: text("sql").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [index("saved_queries_user_database_idx").on(t.userId, t.databaseId, t.updatedAt)],
+);
+
+/* ------------------------------------------------------------------ *
  * Relations
  * ------------------------------------------------------------------ */
 
@@ -321,3 +347,4 @@ export type Instance = typeof instances.$inferSelect;
 export type Node = typeof nodes.$inferSelect;
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type Backup = typeof backups.$inferSelect;
+export type SavedQuery = typeof savedQueries.$inferSelect;
