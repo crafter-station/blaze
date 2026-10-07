@@ -13,6 +13,8 @@ const isPublicRoute = createRouteMatcher([
 	"/sign-up(.*)",
 	"/waitlist(.*)",
 	"/docs(.*)",
+	// The share card: crawlers fetch it signed out, so it must not redirect to sign-in.
+	"/opengraph-image(.*)",
 	// OAuth discovery: an unauthenticated client must be able to read these.
 	"/.well-known(.*)",
 	"/v1(.*)",
