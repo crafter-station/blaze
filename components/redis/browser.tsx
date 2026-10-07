@@ -675,7 +675,7 @@ export function KeyBrowser({ databaseId, databaseName, suspended }: KeyBrowserPr
 			<NewKeyDialog
 				open={newKeyOpen}
 				jsonAvailable={health ? hasJsonModule(health.server) : true}
-				initialPrefix={filter && !/[*?[]]/.test(filter) && filter.endsWith(":") ? filter : ""}
+				initialPrefix={filter && !/[*?[\]]/.test(filter) && filter.endsWith(":") ? filter : ""}
 				onClose={() => setNewKeyOpen(false)}
 				onCreate={({ key, ttl, value }) =>
 					createKey({ op: "create", key, ttl, value }, (ref) => ({

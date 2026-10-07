@@ -6,17 +6,22 @@ import { auditLog, type Database, type Instance } from "@/lib/control/schema";
 import { env } from "@/lib/env";
 import { newId } from "@/lib/id";
 import { LIMITS } from "@/lib/limits";
+import { redisContext, redisInstructions, redisUserMessage } from "@/lib/redis/assistant";
 import { DIALECTS } from "./dialect";
 import { introspectSchema, schemaAsText } from "./introspect";
 import type { SqlEngine } from "./types";
 
 /**
- * The SQL console's assistant: text-to-SQL, explain a query, fix an error.
+ * The consoles' assistant: write, explain or fix SQL, or Redis commands.
  *
- * What it sends to the model is deliberately narrow: the dialect, the schema (names and types
- * read as the tenant role), and the user's own request, SQL and engine error. Never a
- * connection string, never a password, never a row of data. What comes back is only ever
- * a *proposal* rendered in the editor; nothing here executes SQL.
+ * What it sends to the model is deliberately narrow. For SQL: the dialect, the schema
+ * (names and types read as the tenant role), and the user's own request, SQL and engine
+ * error. For Redis: key patterns and types from a SCAN sample and the loaded modules (see
+ * lib/redis/assistant.ts). Never a connection string, never a password, never a row or a
+ * value. What comes back is only ever a *proposal* rendered in the editor or console
+ * input; nothing here executes anything.
+ *
+ * One route, one quota, one provider for both consoles; only the prompt differs.
  */
 
 /**
@@ -168,13 +173,29 @@ export type AssistantEvent =
  * SQL generation benefits from a moment's thought, and an editor assistant is still
  * latency-sensitive. Only the visible text is forwarded; reasoning stays server-side.
  */
+async function prompt(
+	record: Database & { instance: Instance },
+	request: AssistantRequest,
+): Promise<{ instructions: string; input: string }> {
+	if (record.engine === "redis") {
+		return {
+			instructions: redisInstructions(),
+			input: redisUserMessage(request, await redisContext(record)),
+		};
+	}
+	const schema = await schemaContext(record);
+	return {
+		instructions: systemPrompt(record.engine as SqlEngine),
+		input: userMessage(request, schema),
+	};
+}
+
 export async function streamAssistant(
 	record: Database & { instance: Instance },
 	request: AssistantRequest,
 	signal: AbortSignal,
 ): Promise<ReadableStream<Uint8Array>> {
-	const engine = record.engine as SqlEngine;
-	const schema = await schemaContext(record);
+	const { instructions, input } = await prompt(record, request);
 	const encoder = new TextEncoder();
 	const send = (controller: ReadableStreamDefaultController<Uint8Array>, event: AssistantEvent) =>
 		controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
@@ -186,8 +207,8 @@ export async function streamAssistant(
 				const stream = await openai().responses.create(
 					{
 						model: ASSISTANT_MODEL,
-						instructions: systemPrompt(engine),
-						input: userMessage(request, schema),
+						instructions,
+						input,
 						reasoning: { effort: "medium" },
 						max_output_tokens: 16_000,
 						store: false,

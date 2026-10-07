@@ -6,13 +6,24 @@
  *   OPENAI_API_KEY=test OPENAI_BASE_URL=http://127.0.0.1:4011/v1 bun dev
  *
  * Streams a canned answer as server-sent events in the Responses API shape, and logs each
- * request body so the payload (schema + the user's SQL, nothing else) can be inspected.
+ * request body so the payload (schema + the user's SQL, or the Redis key patterns + the
+ * user's commands; nothing else) can be inspected.
  */
 
 const port = Number(process.env.MOCK_PORT ?? 4011);
 
 function answerFor(body: { input?: unknown }): string {
 	const text = JSON.stringify(body.input ?? "");
+	// The Redis console sends its keyspace (patterns and types, no values) in this tag.
+	if (text.includes("<keyspace>")) {
+		if (text.includes("Task: Fix")) {
+			return "`HGETALL` takes exactly one key; the extra argument makes Redis reject the call.\n\n```redis\nHGETALL user:1\n```";
+		}
+		if (text.includes("Task: Explain")) {
+			return "Reads the five highest scores from the weekly leaderboard, highest first.\n\n- `ZREVRANGE ... 0 4` walks the sorted set from the top, so it costs O(log N + 5).\n- `WITHSCORES` returns each member followed by its score.";
+		}
+		return "```redis\nZREVRANGE leaderboard:weekly 0 9 WITHSCORES\nHGETALL user:1\n```\n\nAssumes the leaderboard members are `player:<id>` names.";
+	}
 	if (text.includes("Task: Fix")) {
 		return "The keyword `FROM` is misspelled as `frm`, so the parser reads `frm` as a column alias.\n\n```sql\nselect id, status\nfrom orders\nwhere total > 100;\n```";
 	}

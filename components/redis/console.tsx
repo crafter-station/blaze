@@ -17,6 +17,7 @@ import {
 	PanelLeftClose,
 	Play,
 	RotateCcw,
+	Sparkles,
 	Terminal,
 	Timer,
 	TriangleAlert,
@@ -27,6 +28,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { runRedisAction } from "@/app/(dashboard)/databases/[id]/console/actions";
+import { AssistantPanel, type AssistantTrigger } from "@/components/console-shell/assistant-panel";
 import { formatMs, isMacPlatform, useMediaQuery } from "@/components/console-shell/hooks";
 import { HistoryList } from "@/components/console-shell/library";
 import {
@@ -142,7 +144,15 @@ function readTabs(databaseId: string): { tabs: SessionTab[]; activeId: string } 
 }
 
 export function RedisConsole(props: RedisConsoleProps) {
-	const { databaseId, databaseName, user, timeoutSeconds, blockingCapSeconds, suspended } = props;
+	const {
+		databaseId,
+		databaseName,
+		user,
+		timeoutSeconds,
+		blockingCapSeconds,
+		suspended,
+		aiEnabled,
+	} = props;
 	const desktop = useMediaQuery("(min-width: 1024px)");
 	const mod = isMacPlatform() ? "⌘" : "Ctrl+";
 	const modKey = mod.replace("+", "");
@@ -508,6 +518,48 @@ export function RedisConsole(props: RedisConsoleProps) {
 		</div>
 	);
 
+	/* ---------------- assistant ---------------- */
+
+	const [assistantOpen, setAssistantOpen] = useState(false);
+	const [assistantTrigger, setAssistantTrigger] = useState<AssistantTrigger | null>(null);
+	// A closed panel has no pending request; reopening it must not replay the last one.
+	useEffect(() => {
+		if (!assistantOpen) setAssistantTrigger(null);
+	}, [assistantOpen]);
+	const askAi = useCallback((mode: AssistantTrigger["mode"], sql?: string, error?: string) => {
+		setAssistantOpen(true);
+		setAssistantTrigger({ mode, sql, error, nonce: Date.now() });
+	}, []);
+	const inputText = () => apiRef.current?.getDoc() ?? "";
+
+	const assistant = (
+		<AssistantPanel
+			variant="redis"
+			databaseId={databaseId}
+			enabled={aiEnabled}
+			trigger={assistantTrigger}
+			getEditorSql={inputText}
+			getStatementSql={inputText}
+			onInsert={(text) => {
+				const doc = inputText();
+				apiRef.current?.setDoc(doc.trim() ? `${doc.replace(/\s*$/, "")}\n${text}` : text);
+				if (!desktop) setAssistantOpen(false);
+				setTimeout(() => apiRef.current?.focus(), 0);
+			}}
+			onReplace={(text) => {
+				apiRef.current?.setDoc(text);
+				if (!desktop) setAssistantOpen(false);
+				setTimeout(() => apiRef.current?.focus(), 0);
+			}}
+			onOpenTab={(text) => {
+				if (!desktop) setAssistantOpen(false);
+				openTab(text, "From AI");
+			}}
+			onClose={() => setAssistantOpen(false)}
+			className="h-full"
+		/>
+	);
+
 	const paletteActions: PaletteAction[] = [
 		{ id: "run", label: "Run commands", icon: Play, shortcut: "Enter", run: () => run() },
 		{ id: "clear", label: "Clear output", icon: Eraser, shortcut: `${mod}L`, run: clearOutput },
@@ -532,6 +584,24 @@ export function RedisConsole(props: RedisConsoleProps) {
 			icon: FolderTree,
 			keywords: ["keys", "tree"],
 			run: () => router.push(`/databases/${databaseId}/browser`),
+		},
+		{
+			id: "ask-write",
+			label: "Ask AI to write commands",
+			icon: Sparkles,
+			keywords: ["ai", "assistant", "generate"],
+			run: () => askAi("generate"),
+		},
+		{
+			id: "ask-explain",
+			label: "Ask AI to explain the input",
+			icon: Sparkles,
+			keywords: ["ai", "assistant"],
+			run: () => {
+				const text = inputText();
+				if (text.trim()) askAi("explain", text);
+				else setAssistantOpen(true);
+			},
 		},
 		{
 			id: "shortcuts",
@@ -619,9 +689,24 @@ export function RedisConsole(props: RedisConsoleProps) {
 								{timeoutSeconds}s timeout · blocking commands capped at {blockingCapSeconds}s
 							</p>
 							<Button
+								variant={assistantOpen ? "secondary" : "ghost"}
+								size="sm"
+								className="ml-auto @4xl:ml-0"
+								onClick={() => setAssistantOpen((open) => !open)}
+								aria-pressed={assistantOpen}
+								aria-label="Ask AI"
+								title={aiEnabled ? "Ask AI" : "Ask AI (not configured on this server)"}
+							>
+								<Sparkles
+									data-icon="inline-start"
+									className={aiEnabled ? "text-brand-text" : undefined}
+								/>
+								<span className="hidden @xl:inline">Ask AI</span>
+							</Button>
+							<Button
 								variant="ghost"
 								size="sm"
-								className="ml-auto text-muted-foreground @4xl:ml-0"
+								className="text-muted-foreground"
 								onClick={() => setPaletteOpen(true)}
 								aria-label="Open command palette"
 							>
@@ -670,6 +755,7 @@ export function RedisConsole(props: RedisConsoleProps) {
 										index={index}
 										onOpenKey={openKey}
 										onRerun={() => run(block.line)}
+										onFix={aiEnabled ? (line, error) => askAi("fix", line, error) : undefined}
 										onEdit={() => {
 											apiRef.current?.setDoc(block.line);
 											setInput(block.line);
@@ -736,7 +822,22 @@ export function RedisConsole(props: RedisConsoleProps) {
 						</div>
 					</div>
 				</div>
+				{desktop && assistantOpen && (
+					<aside className="w-[min(400px,34%)] shrink-0 border-border border-l">{assistant}</aside>
+				)}
 			</div>
+
+			{!desktop && (
+				<Sheet open={assistantOpen} onOpenChange={setAssistantOpen}>
+					<SheetContent side="bottom" className="h-[88dvh] gap-0 p-0" showCloseButton={false}>
+						<SheetHeader className="sr-only">
+							<SheetTitle>Ask AI</SheetTitle>
+							<SheetDescription>Write, explain or fix Redis commands with AI</SheetDescription>
+						</SheetHeader>
+						{assistant}
+					</SheetContent>
+				</Sheet>
+			)}
 
 			{!desktop && (
 				<Sheet open={sideSheet} onOpenChange={setSideSheet}>
@@ -891,7 +992,9 @@ function TranscriptBlock({
 	onOpenKey,
 	onRerun,
 	onEdit,
+	onFix,
 }: {
+	onFix?: (line: string, error: string) => void;
 	block: Block;
 	index: CommandIndex | null;
 	onOpenKey: (key: string) => void;
@@ -966,7 +1069,20 @@ function TranscriptBlock({
 						Running…
 					</p>
 				) : outcome ? (
-					<OutcomeView outcome={outcome} command={command} onOpenKey={onOpenKey} />
+					<OutcomeView
+						outcome={outcome}
+						command={command}
+						onOpenKey={onOpenKey}
+						onFix={
+							onFix && !outcome.ok && (outcome.kind === "syntax" || outcome.reply?.t === "error")
+								? () =>
+										onFix(
+											block.line,
+											outcome.reply?.t === "error" ? outcome.reply.v : (outcome.error ?? ""),
+										)
+								: undefined
+						}
+					/>
 				) : null}
 			</div>
 		</li>
@@ -1033,10 +1149,12 @@ function OutcomeView({
 	outcome,
 	command,
 	onOpenKey,
+	onFix,
 }: {
 	outcome: CommandOutcome;
 	command: string;
 	onOpenKey: (key: string) => void;
+	onFix?: () => void;
 }) {
 	return (
 		<div className="space-y-1.5">
@@ -1073,6 +1191,12 @@ function OutcomeView({
 					The reply was cut to keep the page responsive. Narrow the command (a COUNT, a range) to
 					see the rest.
 				</p>
+			)}
+			{onFix && (
+				<Button variant="outline" size="xs" onClick={onFix}>
+					<Sparkles data-icon="inline-start" />
+					Fix with AI
+				</Button>
 			)}
 		</div>
 	);
