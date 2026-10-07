@@ -55,6 +55,17 @@
 					}
 				}
 			}
+		},
+		{
+			"includes": ["components/sql/**"],
+			"linter": {
+				"rules": {
+					"a11y": {
+						"useSemanticElements": "off",
+						"useFocusableInteractive": "off"
+					}
+				}
+			}
 		}
 	]
 }

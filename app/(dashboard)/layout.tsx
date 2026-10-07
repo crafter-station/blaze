@@ -1,4 +1,5 @@
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { Main } from "@/components/dashboard/main";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { TopBar } from "@/components/dashboard/topbar";
 import { requireUser } from "@/lib/auth";
@@ -46,9 +47,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 					healthy={healthy}
 					databases={owned}
 				/>
-				<main id="main" className="flex-1 px-4 py-8 sm:px-6 lg:px-10 lg:py-10">
-					<div className="mx-auto max-w-[1120px]">{children}</div>
-				</main>
+				<Main>{children}</Main>
 			</div>
 		</div>
 	);

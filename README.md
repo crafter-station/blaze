@@ -41,7 +41,10 @@ bun run dev:seed -- --email you+clerk_test@example.com
 Then start the app against the local control DB, with the dev-only tenant redirect:
 
 ```bash
-DATABASE_URL=postgresql://blaze:blaze@127.0.0.1:54320/blaze TENANT_HOST_OVERRIDE=127.0.0.1 TENANT_PORT_OVERRIDE=postgres=54321,mysql=33061,mariadb=33062,libsql=58080 bun dev
+DATABASE_URL=postgresql://blaze:blaze@127.0.0.1:54320/blaze \
+TENANT_HOST_OVERRIDE=127.0.0.1 \
+TENANT_PORT_OVERRIDE=postgres=54321,mysql=33061,mariadb=33062,libsql=58080 \
+bun dev
 ```
 
 Process environment wins over `.env.local`, so this never touches a remote control DB.

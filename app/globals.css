@@ -327,6 +327,16 @@
 	animation: blaze-flicker 2.8s ease-in-out infinite;
 }
 
+/* SQL console: indeterminate progress line under the results header. */
+@keyframes sql-progress {
+	from {
+		transform: translateX(-100%);
+	}
+	to {
+		transform: translateX(300%);
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.blaze-drift,
 	.blaze-drift-slow,

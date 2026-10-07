@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
-import { PageHeader } from "@/components/console/page";
-import { SqlEditor } from "@/components/dashboard/sql-editor";
-import { StatusPill } from "@/components/dashboard/status-pill";
+import { SqlConsole } from "@/components/sql/console";
 import { requireUser } from "@/lib/auth";
 import { ENGINE_CONFIG } from "@/lib/engines/types";
+import { env } from "@/lib/env";
 import { LIMITS } from "@/lib/limits";
 import { getOwnedDatabase } from "@/lib/provision";
 import { MAX_ROWS } from "@/lib/query";
+import { isSqlEngine } from "@/lib/sql/types";
 
 export const metadata = { title: "SQL editor" };
 export const dynamic = "force-dynamic";
@@ -18,25 +18,20 @@ export default async function SqlPage({ params }: { params: Promise<{ id: string
 	if (!record) notFound();
 
 	// Mongo and Redis need their own consoles rather than a SQL box (PLAN.md Q18).
-	if (!ENGINE_CONFIG[record.engine].hasSql) notFound();
+	if (!ENGINE_CONFIG[record.engine].hasSql || !isSqlEngine(record.engine)) notFound();
 
 	return (
-		<div className="space-y-8">
-			<PageHeader
-				back={{ href: `/databases/${id}`, label: record.name }}
-				title="SQL editor"
-				meta={<StatusPill status={record.status} />}
-				description={
-					<>
-						<span className="font-mono text-foreground/80">{record.dbName}</span>
-						<span className="mx-2 text-border-strong">/</span>
-						statements time out after {LIMITS.STATEMENT_TIMEOUT_MS / 1000}s, first {MAX_ROWS} rows
-						shown
-					</>
-				}
+		<>
+			<h1 className="sr-only">SQL editor for {record.name}</h1>
+			<SqlConsole
+				databaseId={record.id}
+				databaseName={record.name}
+				engine={record.engine}
+				roleName={record.roleName}
+				timeoutSeconds={LIMITS.STATEMENT_TIMEOUT_MS / 1000}
+				maxRows={MAX_ROWS}
+				aiEnabled={Boolean(env.ANTHROPIC_API_KEY)}
 			/>
-
-			<SqlEditor databaseId={record.id} />
-		</div>
+		</>
 	);
 }
