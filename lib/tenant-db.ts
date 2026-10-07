@@ -1,7 +1,7 @@
 import "server-only";
 import { createClient } from "@libsql/client";
 import mysql from "mysql2/promise";
-import { Client } from "pg";
+import { Client, types as pgTypes } from "pg";
 import { tenantInternalConnectionString } from "./connection";
 import type { Database, Instance } from "./control/schema";
 import { decryptSecret } from "./crypto";
@@ -35,6 +35,18 @@ export interface TenantConnection {
 }
 
 type Record_ = Database & { instance: Instance };
+
+export interface ConnectOptions {
+	/**
+	 * Return dates, times, intervals and big numbers as the engine's own text rather than
+	 * JS `Date`s and doubles. The SQL console wants exactly what the database said; a
+	 * `Date` would be re-rendered in the server's time zone and lose precision.
+	 */
+	textValues?: boolean;
+}
+
+/** Postgres date/time OIDs whose text form is kept verbatim with `textValues`. */
+const PG_TEXT_OIDS = new Set([1082, 1083, 1114, 1184, 1186, 1266]);
 
 /** Where the tenant's engine is reached. Only a dev build can redirect it — see dev-override. */
 function target(record: Record_) {
@@ -154,10 +166,22 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
 	]).finally(() => clearTimeout(timer));
 }
 
-async function connectPostgres(record: Record_, timeoutMs: number): Promise<TenantConnection> {
+async function connectPostgres(
+	record: Record_,
+	timeoutMs: number,
+	options: ConnectOptions,
+): Promise<TenantConnection> {
 	const client = new Client({
 		connectionString: url(record),
 		connectionTimeoutMillis: 10_000,
+		...(options.textValues && {
+			types: {
+				getTypeParser: ((oid: number, format?: "text" | "binary") =>
+					PG_TEXT_OIDS.has(oid)
+						? (value: string) => value
+						: pgTypes.getTypeParser(oid, format)) as typeof pgTypes.getTypeParser,
+			},
+		}),
 		query_timeout: timeoutMs,
 	});
 	await client.connect();
@@ -188,9 +212,18 @@ async function connectPostgres(record: Record_, timeoutMs: number): Promise<Tena
 	};
 }
 
-async function connectMysql(record: Record_, timeoutMs: number): Promise<TenantConnection> {
+async function connectMysql(
+	record: Record_,
+	timeoutMs: number,
+	options: ConnectOptions,
+): Promise<TenantConnection> {
 	const parsed = new URL(url(record));
 	const conn = await mysql.createConnection({
+		...(options.textValues && {
+			dateStrings: true,
+			supportBigNumbers: true,
+			bigNumberStrings: true,
+		}),
 		host: parsed.hostname,
 		port: Number(parsed.port || 3306),
 		user: decodeURIComponent(parsed.username),
@@ -214,23 +247,26 @@ async function connectMysql(record: Record_, timeoutMs: number): Promise<TenantC
 			/*
 			 * mysql2's result shape depends on the statement, and getting this wrong is silent:
 			 *
-			 *   single write   rows = OkPacket,          fields = undefined
-			 *   single select  rows = [[...]],           fields = [FieldPacket, ...]
-			 *   batch          rows = [Ok, Ok, [[...]]], fields = [undefined, undefined, [FieldPacket]]
+			 *   single write   rows = OkPacket,              fields = undefined
+			 *   single select  rows = [[v, v], [v, v]],      fields = [FieldPacket, ...]
+			 *   batch          rows = [Ok, Ok, [[v, v]]],    fields = [undefined, undefined, [FieldPacket]]
 			 *
-			 * The batch case is the trap: `fields[0]` is `undefined` for a leading non-SELECT,
-			 * so testing `Array.isArray(fields[0])` classifies a batch as a single select and
-			 * then maps over undefined entries. Detect on the *rows* side instead, where every
-			 * batch element is either an array or an OkPacket.
+			 * With `rowsAsArray`, every row of a single SELECT is itself an array, so the rows
+			 * side cannot tell a one-statement result from a batch. The fields side can: a
+			 * single SELECT has FieldPacket objects there, a batch has one slot per statement
+			 * holding either a FieldPacket array or `undefined`.
 			 */
-			const isBatch =
-				Array.isArray(rows) &&
-				rows.length > 0 &&
-				rows.every(
-					(entry) =>
-						Array.isArray(entry) ||
-						(entry !== null && typeof entry === "object" && "affectedRows" in (entry as object)),
-				);
+			const isOk = (entry: unknown) =>
+				entry !== null &&
+				typeof entry === "object" &&
+				!Array.isArray(entry) &&
+				"affectedRows" in entry;
+			const isBatch = Array.isArray(fields)
+				? fields.length > 0 &&
+					fields.every((slot) => slot === undefined || slot === null || Array.isArray(slot)) &&
+					Array.isArray(rows) &&
+					rows.length === fields.length
+				: Array.isArray(rows) && rows.length > 0 && rows.every(isOk);
 
 			const finalRows = isBatch ? (rows as unknown[])[(rows as unknown[]).length - 1] : rows;
 			const finalFields = isBatch
@@ -304,13 +340,14 @@ async function connectLibsql(record: Record_, timeoutMs: number): Promise<Tenant
 export async function connectTenant(
 	record: Record_,
 	timeoutMs = 35_000,
+	options: ConnectOptions = {},
 ): Promise<TenantConnection> {
 	switch (record.engine) {
 		case "postgres":
-			return connectPostgres(record, timeoutMs);
+			return connectPostgres(record, timeoutMs, options);
 		case "mysql":
 		case "mariadb":
-			return connectMysql(record, timeoutMs);
+			return connectMysql(record, timeoutMs, options);
 		case "libsql":
 			return connectLibsql(record, timeoutMs);
 		default:
