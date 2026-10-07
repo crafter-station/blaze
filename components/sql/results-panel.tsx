@@ -13,6 +13,13 @@ import {
 	TriangleAlert,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
+import { DataGrid } from "@/components/console-shell/data-grid";
+import {
+	formatMs,
+	isMacPlatform,
+	useElapsed,
+	useMediaQuery,
+} from "@/components/console-shell/hooks";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -31,8 +38,6 @@ import {
 import { toCsv, toJson } from "@/lib/sql/export";
 import type { StatementOutcome } from "@/lib/sql/types";
 import { cn } from "@/lib/utils";
-import { DataGrid } from "./data-grid";
-import { formatMs, isMacPlatform, useElapsed, useMediaQuery } from "./hooks";
 import { RowInspector } from "./row-inspector";
 
 export interface RunEntry {

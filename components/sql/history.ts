@@ -1,11 +1,8 @@
 "use client";
 
-/**
- * Per-database query history, kept in this browser only. Capped, and every access is
- * wrapped: private windows, full quotas and disabled storage all degrade to "no history"
- * rather than breaking the console.
- */
+import { createHistoryStore } from "@/components/console-shell/history";
 
+/** One SQL console run, as the history panel lists it. */
 export interface HistoryEntry {
 	id: string;
 	sql: string;
@@ -18,33 +15,13 @@ export interface HistoryEntry {
 	error?: string;
 }
 
-const LIMIT = 100;
-const key = (databaseId: string) => `blaze.sql.history.${databaseId}`;
+const store = createHistoryStore<HistoryEntry>({
+	key: (databaseId) => `blaze.sql.history.${databaseId}`,
+	identity: (entry) => entry.sql,
+	valid: (entry): entry is HistoryEntry =>
+		!!entry && typeof (entry as HistoryEntry).sql === "string",
+});
 
-export function readHistory(databaseId: string): HistoryEntry[] {
-	try {
-		const raw = localStorage.getItem(key(databaseId));
-		const parsed = raw ? (JSON.parse(raw) as HistoryEntry[]) : [];
-		return Array.isArray(parsed) ? parsed.filter((e) => e && typeof e.sql === "string") : [];
-	} catch {
-		return [];
-	}
-}
-
-export function pushHistory(databaseId: string, entry: HistoryEntry): HistoryEntry[] {
-	const current = readHistory(databaseId);
-	// Re-running the same SQL moves it to the top instead of duplicating it.
-	const next = [entry, ...current.filter((e) => e.sql !== entry.sql)].slice(0, LIMIT);
-	try {
-		localStorage.setItem(key(databaseId), JSON.stringify(next));
-	} catch {
-		// Quota exceeded or storage disabled: keep the in-memory list for this session.
-	}
-	return next;
-}
-
-export function clearHistory(databaseId: string) {
-	try {
-		localStorage.removeItem(key(databaseId));
-	} catch {}
-}
+export const readHistory = store.read;
+export const pushHistory = store.push;
+export const clearHistory = store.clear;

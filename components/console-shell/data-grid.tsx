@@ -44,6 +44,9 @@ import type { ResultColumn } from "@/lib/sql/types";
 import { cn } from "@/lib/utils";
 
 /**
+ * Shared by the SQL console's results and the Redis browser's tabular views (hash
+ * fields, sorted-set members, stream entries).
+ *
  * The result grid: virtualised rows, resizable and pinnable columns, client-side sort,
  * spreadsheet-style cell selection (click, shift-click, drag, arrows), and copy as TSV or
  * JSON. Rows are arrays, not objects, so two columns with the same name both survive.
@@ -93,6 +96,8 @@ export function DataGrid({
 	onInspect,
 	inspectedRow,
 	label,
+	inspectLabel = "Inspect row",
+	emptyLabel,
 }: {
 	columns: ResultColumn[];
 	rows: Row[];
@@ -100,6 +105,10 @@ export function DataGrid({
 	onInspect: (rowIndex: number) => void;
 	inspectedRow: number | null;
 	label: string;
+	/** Context-menu wording for the row action, e.g. "Edit row" where rows are editable. */
+	inspectLabel?: string;
+	/** Shown in place of the body when there are no rows. */
+	emptyLabel?: string;
 }) {
 	const kinds = useMemo<CellKind[]>(
 		() =>
@@ -437,6 +446,12 @@ export function DataGrid({
 						})}
 					</div>
 
+					{rows.length === 0 && emptyLabel && (
+						<p className="sticky left-0 px-4 py-8 text-center font-sans text-muted-foreground text-xs">
+							{emptyLabel}
+						</p>
+					)}
+
 					{/* Body */}
 					<div
 						className="relative"
@@ -561,7 +576,7 @@ export function DataGrid({
 					onSelect={() => focusedRowIndex !== undefined && onInspect(focusedRowIndex)}
 				>
 					<Eye />
-					Inspect row
+					{inspectLabel}
 					<ContextMenuShortcut>Enter</ContextMenuShortcut>
 				</ContextMenuItem>
 			</ContextMenuContent>

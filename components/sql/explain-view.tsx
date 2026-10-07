@@ -10,10 +10,10 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { formatMs } from "@/components/console-shell/hooks";
 import { Button } from "@/components/ui/button";
 import { formatCount, type PlanNode, type PlanTree } from "@/lib/sql/explain";
 import { cn } from "@/lib/utils";
-import { formatMs } from "./hooks";
 
 export interface ExplainState {
 	status: "loading" | "done" | "error";

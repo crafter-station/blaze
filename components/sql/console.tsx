@@ -15,9 +15,9 @@ import {
 	PanelLeftClose,
 	Play,
 	PlayCircle,
-	Plus,
 	Save,
 	Sparkles,
+	Table2,
 	WandSparkles,
 	X,
 } from "lucide-react";
@@ -33,6 +33,14 @@ import {
 	saveQueryAction,
 	tableDdlAction,
 } from "@/app/(dashboard)/databases/[id]/sql/actions";
+import { AssistantPanel, type AssistantTrigger } from "@/components/console-shell/assistant-panel";
+import { formatMs, isMacPlatform, useMediaQuery } from "@/components/console-shell/hooks";
+import {
+	CommandPalette,
+	type PaletteAction,
+	ShortcutsDialog,
+} from "@/components/console-shell/palette";
+import { SegmentedTabs, TabStrip } from "@/components/console-shell/tab-strip";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -55,8 +63,6 @@ import { locateError } from "@/lib/sql/error-position";
 import { normalizePlan, supportsAnalyze } from "@/lib/sql/explain";
 import { type Statement, splitStatements, statementAt, statementsInRange } from "@/lib/sql/split";
 import type { SchemaSnapshot, SchemaTable, SqlEngine } from "@/lib/sql/types";
-import { cn } from "@/lib/utils";
-import { AssistantPanel, type AssistantTrigger } from "./assistant-panel";
 import {
 	ConfirmAnalyze,
 	ConfirmDelete,
@@ -68,9 +74,7 @@ import {
 import { type EditorApi, type EditorError, type EditorHandlers, SqlCodeEditor } from "./editor";
 import { type ExplainState, ExplainView } from "./explain-view";
 import { clearHistory, type HistoryEntry, pushHistory, readHistory } from "./history";
-import { formatMs, isMacPlatform, useMediaQuery } from "./hooks";
 import { QueryHistory, SavedQueries } from "./library";
-import { CommandPalette, type PaletteAction, ShortcutsDialog } from "./palette";
 import { ResultsPanel, type RunEntry, type RunRecord } from "./results-panel";
 import { SchemaExplorer } from "./schema-explorer";
 
@@ -837,29 +841,14 @@ export function SqlConsole(props: ConsoleProps) {
 	];
 	const explorer = (
 		<div className="flex h-full min-h-0 flex-col">
-			<div
-				role="tablist"
-				aria-label="Side panel"
-				className="flex h-10 shrink-0 items-center gap-0.5 border-border border-b px-1.5"
-			>
-				{panels.map((item) => (
-					<button
-						key={item.id}
-						type="button"
-						role="tab"
-						aria-selected={panel === item.id}
-						onClick={() => setPanel(item.id)}
-						className={cn(
-							"flex h-7 flex-1 items-center justify-center gap-1.5 rounded-md text-xs transition-colors focus-visible:outline-2 focus-visible:outline-ring",
-							panel === item.id
-								? "bg-accent font-medium text-foreground"
-								: "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-						)}
-					>
-						<item.icon className="size-3.5" />
-						{item.label}
-					</button>
-				))}
+			<div className="flex h-10 shrink-0 items-center border-border border-b px-1.5">
+				<SegmentedTabs
+					items={panels}
+					value={panel}
+					onChange={setPanel}
+					label="Side panel"
+					className="flex-1"
+				/>
 			</div>
 			{panel === "schema" ? (
 				<SchemaExplorer
@@ -1056,88 +1045,32 @@ export function SqlConsole(props: ConsoleProps) {
 				<div className="flex min-w-0 flex-1 flex-col">
 					{/* Tabs and toolbar stay reachable while the page scrolls on small screens. */}
 					<div className="sticky top-14 z-20 lg:static">
-						{/* Tab strip */}
-						<div className="flex h-10 shrink-0 items-center gap-1 border-border border-b bg-background pr-2 pl-1.5">
-							<Button
-								variant="ghost"
-								size="icon-sm"
-								onClick={() => (desktop ? setExplorerOpen((v) => !v) : setExplorerSheet(true))}
-								aria-label={desktop && explorerOpen ? "Hide side panel" : "Show side panel"}
-								title={desktop && explorerOpen ? "Hide side panel" : "Show side panel"}
-							>
-								{desktop && explorerOpen ? <PanelLeftClose /> : <PanelLeft />}
-							</Button>
-							<div
-								role="tablist"
-								aria-label="Queries"
-								className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
-							>
-								{tabs.map((tab) => {
-									const selected = tab.id === active.id;
-									return (
-										<div
-											key={tab.id}
-											className={cn(
-												"group/tab relative flex h-8 shrink-0 items-center rounded-md text-[0.8125rem] transition-colors",
-												selected
-													? "bg-accent text-foreground"
-													: "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-											)}
-										>
-											<button
-												type="button"
-												role="tab"
-												aria-selected={selected}
-												onClick={() => setActiveId(tab.id)}
-												onAuxClick={(e) => e.button === 1 && closeTab(tab.id)}
-												className="flex h-full max-w-[180px] items-center gap-1.5 rounded-md pr-1 pl-2.5 focus-visible:outline-2 focus-visible:outline-ring"
-											>
-												{pending?.tabId === tab.id && (
-													<Loader2 className="size-3 animate-spin motion-reduce:animate-none" />
-												)}
-												{tab.savedId && <Bookmark className="size-3 shrink-0" aria-hidden="true" />}
-												<span className="truncate">{tab.title}</span>
-												{tab.savedId && tab.savedSql !== tab.sql && (
-													<span
-														className="size-1.5 shrink-0 rounded-full bg-foreground/50"
-														title="Unsaved changes"
-													>
-														<span className="sr-only">(unsaved changes)</span>
-													</span>
-												)}
-											</button>
-											<button
-												type="button"
-												onClick={() => closeTab(tab.id)}
-												aria-label={`Close ${tab.title}`}
-												className={cn(
-													"mr-1 flex size-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-background/60 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring",
-													!selected &&
-														"opacity-0 group-hover/tab:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100",
-												)}
-											>
-												<X className="size-3" />
-											</button>
-											{selected && (
-												<span
-													aria-hidden="true"
-													className="absolute inset-x-2 -bottom-[5px] h-0.5 rounded-full bg-brand"
-												/>
-											)}
-										</div>
-									);
-								})}
+						<TabStrip
+							tabs={tabs.map((tab) => ({
+								id: tab.id,
+								title: tab.title,
+								pending: pending?.tabId === tab.id,
+								saved: !!tab.savedId,
+								dirty: !!tab.savedId && tab.savedSql !== tab.sql,
+							}))}
+							activeId={active.id}
+							onSelect={setActiveId}
+							onClose={closeTab}
+							onNew={() => openTab("")}
+							label="Queries"
+							newLabel="New query tab"
+							leading={
 								<Button
 									variant="ghost"
 									size="icon-sm"
-									onClick={() => openTab("")}
-									aria-label="New query tab"
-									title="New query tab"
+									onClick={() => (desktop ? setExplorerOpen((v) => !v) : setExplorerSheet(true))}
+									aria-label={desktop && explorerOpen ? "Hide side panel" : "Show side panel"}
+									title={desktop && explorerOpen ? "Hide side panel" : "Show side panel"}
 								>
-									<Plus />
+									{desktop && explorerOpen ? <PanelLeftClose /> : <PanelLeft />}
 								</Button>
-							</div>
-						</div>
+							}
+						/>
 
 						{/* Toolbar */}
 						<div className="@container flex h-11 shrink-0 items-center gap-1 overflow-hidden border-border border-b bg-card px-2">
@@ -1457,12 +1390,50 @@ export function SqlConsole(props: ConsoleProps) {
 				open={paletteOpen}
 				onOpenChange={setPaletteOpen}
 				actions={paletteActions}
-				tables={snapshot?.tables ?? []}
-				saved={saved ?? []}
-				history={history}
-				onPreviewTable={tableActions.selectStar}
-				onOpenSaved={openSaved}
-				onOpenHistory={(entry) => openTab(`${entry.sql};\n`, "From history")}
+				title="SQL console commands"
+				description="Run actions, open tables, saved queries and recent runs"
+				placeholder="Type a command, table or saved query…"
+				groups={[
+					{
+						heading: "Preview a table",
+						items: (snapshot?.tables ?? []).map((table) => ({
+							id: `${table.schema}.${table.name}`,
+							value: `preview table ${table.schema}.${table.name}`,
+							icon: Table2,
+							label: (
+								<>
+									<span className="font-mono text-[0.8125rem]">{table.name}</span>
+									<span className="ml-1 text-muted-foreground text-xs">{table.schema}</span>
+								</>
+							),
+							onSelect: () => tableActions.selectStar(table),
+						})),
+					},
+					{
+						heading: "Saved queries",
+						items: (saved ?? []).map((query) => ({
+							id: query.id,
+							value: `saved ${query.name} ${query.id}`,
+							icon: Bookmark,
+							label: query.name,
+							onSelect: () => openSaved(query),
+						})),
+					},
+					{
+						heading: "Recent runs",
+						items: history.slice(0, 8).map((entry) => ({
+							id: entry.id,
+							value: `recent ${entry.sql.slice(0, 200)} ${entry.id}`,
+							icon: History,
+							label: (
+								<span className="truncate font-mono text-xs">
+									{entry.sql.replace(/\s+/g, " ").slice(0, 90)}
+								</span>
+							),
+							onSelect: () => openTab(`${entry.sql};\n`, "From history"),
+						})),
+					},
+				]}
 			/>
 			<ShortcutsDialog
 				open={shortcutsOpen}

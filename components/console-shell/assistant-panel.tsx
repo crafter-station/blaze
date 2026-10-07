@@ -18,10 +18,65 @@ import { cn } from "@/lib/utils";
 import { isMacPlatform } from "./hooks";
 
 /**
- * "Ask AI": write SQL from a description, explain the statement under the cursor, or
- * fix the one that just failed. Answers stream in; any SQL in them can be inserted,
- * swapped in, or opened in a new tab, and is never run from here.
+ * "Ask AI": write SQL or Redis commands from a description, explain the ones in the
+ * editor, or fix the one that just failed. Answers stream in; any code in them can be
+ * inserted, swapped in, or opened in a new tab, and is never run from here.
+ *
+ * Shared by the SQL console and the Redis console. Only the wording differs; the route,
+ * quota and streaming are the same.
  */
+
+export type AssistantVariant = "sql" | "redis";
+
+const COPY: Record<
+	AssistantVariant,
+	{
+		write: string;
+		explainTab: string;
+		idleWrite: string;
+		idleExplain: string;
+		placeholder: string;
+		nothingToExplain: string;
+		promptLabel: string;
+		privacy: string;
+		replace: string;
+		copy: string;
+		copied: string;
+		taskLabel: string;
+	}
+> = {
+	sql: {
+		write: "Write SQL",
+		explainTab: "Explain query",
+		idleWrite: "Describe the data you want. The assistant knows your tables and columns.",
+		idleExplain: "Explains the selection, or the statement under the cursor.",
+		placeholder: "Top 10 customers by revenue this year, with their country…",
+		nothingToExplain: "Put the cursor in a statement, or select one.",
+		promptLabel: "Describe the query you want",
+		privacy:
+			"The assistant sees your schema and this SQL, never your data or credentials. It only suggests; you decide what runs.",
+		replace: "Replace editor",
+		copy: "Copy SQL",
+		copied: "Copied SQL",
+		taskLabel: "query",
+	},
+	redis: {
+		write: "Write commands",
+		explainTab: "Explain commands",
+		idleWrite:
+			"Describe what you want to do. The assistant knows your key patterns and types, never their values.",
+		idleExplain: "Explains the commands in the console input.",
+		placeholder: "Top 10 players on the weekly leaderboard, with their scores…",
+		nothingToExplain: "Type a command in the console first.",
+		promptLabel: "Describe what you want to do",
+		privacy:
+			"The assistant sees key names, types and these commands, never values or credentials. It only suggests; you decide what runs.",
+		replace: "Replace input",
+		copy: "Copy commands",
+		copied: "Copied commands",
+		taskLabel: "commands",
+	},
+};
 
 export type AssistantMode = "generate" | "explain" | "fix";
 
@@ -36,6 +91,7 @@ export interface AssistantTrigger {
 type Status = "idle" | "streaming" | "done" | "error";
 
 export function AssistantPanel({
+	variant = "sql",
 	databaseId,
 	enabled,
 	trigger,
@@ -47,6 +103,7 @@ export function AssistantPanel({
 	onClose,
 	className,
 }: {
+	variant?: AssistantVariant;
 	databaseId: string;
 	enabled: boolean;
 	trigger: AssistantTrigger | null;
@@ -60,6 +117,7 @@ export function AssistantPanel({
 	onClose: () => void;
 	className?: string;
 }) {
+	const copy = COPY[variant];
 	const [mode, setMode] = useState<AssistantMode>("generate");
 	const [prompt, setPrompt] = useState("");
 	const [answer, setAnswer] = useState("");
@@ -165,9 +223,7 @@ export function AssistantPanel({
 		} else {
 			const sql = getStatementSql();
 			if (!sql.trim()) {
-				toast.message("Nothing to explain", {
-					description: "Put the cursor in a statement, or select one.",
-				});
+				toast.message("Nothing to explain", { description: copy.nothingToExplain });
 				return;
 			}
 			void ask({ mode: "explain", sql, prompt: prompt.trim() || undefined });
@@ -210,8 +266,8 @@ export function AssistantPanel({
 					<div role="tablist" aria-label="Assistant task" className="flex shrink-0 gap-0.5 p-1.5">
 						{(
 							[
-								["generate", "Write SQL"],
-								["explain", "Explain query"],
+								["generate", copy.write],
+								["explain", copy.explainTab],
 							] as const
 						).map(([value, label]) => (
 							<button
@@ -254,9 +310,7 @@ export function AssistantPanel({
 
 						{status === "idle" ? (
 							<p className="px-1 py-6 text-center text-muted-foreground text-xs leading-relaxed">
-								{mode === "generate"
-									? "Describe the data you want. The assistant knows your tables and columns."
-									: "Explains the selection, or the statement under the cursor."}
+								{mode === "generate" ? copy.idleWrite : copy.idleExplain}
 							</p>
 						) : (
 							<>
@@ -267,6 +321,7 @@ export function AssistantPanel({
 										onInsert={onInsert}
 										onReplace={onReplace}
 										onOpenTab={onOpenTab}
+										copy={copy}
 									/>
 								)}
 								{status === "streaming" && !answer && (
@@ -296,8 +351,8 @@ export function AssistantPanel({
 					>
 						<label htmlFor="assistant-prompt" className="sr-only">
 							{mode === "explain"
-								? "Optional question about the query"
-								: "Describe the query you want"}
+								? `Optional question about the ${copy.taskLabel}`
+								: copy.promptLabel}
 						</label>
 						<div className="rounded-lg border border-input bg-background focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/25">
 							<textarea
@@ -316,7 +371,7 @@ export function AssistantPanel({
 								placeholder={
 									mode === "explain"
 										? "Optional: what do you want to know about it?"
-										: "Top 10 customers by revenue this year, with their country…"
+										: copy.placeholder
 								}
 								className="block w-full resize-none bg-transparent px-3 pt-2 text-[0.8125rem] outline-none placeholder:text-muted-foreground"
 							/>
@@ -335,14 +390,13 @@ export function AssistantPanel({
 								) : (
 									<Button type="submit" size="sm">
 										<ArrowUp data-icon="inline-start" />
-										{mode === "explain" ? "Explain" : "Write SQL"}
+										{mode === "explain" ? "Explain" : copy.write}
 									</Button>
 								)}
 							</div>
 						</div>
 						<p className="mt-1.5 px-1 text-[0.625rem] text-muted-foreground leading-relaxed">
-							The assistant sees your schema and this SQL, never your data or credentials. It only
-							suggests; you decide what runs.
+							{copy.privacy}
 						</p>
 					</form>
 				</>
@@ -355,13 +409,17 @@ export function AssistantPanel({
  * Answer rendering: paragraphs, bullets, inline code and SQL blocks
  * ------------------------------------------------------------------ */
 
+type Copy = (typeof COPY)[AssistantVariant];
+
 function Answer({
 	text,
 	streaming,
 	onInsert,
 	onReplace,
 	onOpenTab,
+	copy,
 }: {
+	copy: Copy;
 	text: string;
 	streaming: boolean;
 	onInsert: (sql: string) => void;
@@ -389,6 +447,7 @@ function Answer({
 						onInsert={onInsert}
 						onReplace={onReplace}
 						onOpenTab={onOpenTab}
+						copy={copy}
 					/>
 				) : (
 					<Prose key={i} text={part.body} />
@@ -448,7 +507,9 @@ function CodeBlock({
 	onInsert,
 	onReplace,
 	onOpenTab,
+	copy,
 }: {
+	copy: Copy;
 	sql: string;
 	complete: boolean;
 	onInsert: (sql: string) => void;
@@ -471,7 +532,7 @@ function CodeBlock({
 					</Button>
 					<Button variant="ghost" size="xs" onClick={() => onReplace(sql)}>
 						<Replace data-icon="inline-start" />
-						Replace editor
+						{copy.replace}
 					</Button>
 					<Button variant="ghost" size="xs" onClick={() => onOpenTab(sql)}>
 						<FilePlus2 data-icon="inline-start" />
@@ -481,11 +542,11 @@ function CodeBlock({
 						variant="ghost"
 						size="icon-xs"
 						className="ml-auto"
-						aria-label="Copy SQL"
+						aria-label={copy.copy}
 						onClick={async () => {
 							try {
 								await navigator.clipboard.writeText(sql);
-								toast.success("Copied SQL");
+								toast.success(copy.copied);
 							} catch {
 								toast.error("Clipboard is not available");
 							}

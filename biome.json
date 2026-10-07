@@ -57,7 +57,7 @@
 			}
 		},
 		{
-			"includes": ["components/sql/**"],
+			"includes": ["components/sql/**", "components/console-shell/**", "components/redis/**"],
 			"linter": {
 				"rules": {
 					"a11y": {
