@@ -4,6 +4,7 @@ import type { Metadata, Viewport } from "next";
 import { Doto, Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme/provider";
 import { Toaster } from "@/components/theme/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { publicUrl } from "@/lib/public-url";
 import "./globals.css";
 
@@ -86,7 +87,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
 							},
 						}}
 					>
-						{children}
+						<TooltipProvider>{children}</TooltipProvider>
 						<Toaster />
 					</ClerkProvider>
 				</ThemeProvider>

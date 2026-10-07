@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@clerk/themes/shadcn.css";
+@import "shadcn/tailwind.css";
 
 /*
  * Class-based dark mode, driven by next-themes. `:where` keeps the variant at zero
@@ -73,6 +74,7 @@
 	--font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 	--font-mono: var(--font-geist-mono), ui-monospace, monospace;
 	--font-display: var(--font-doto);
+	--font-heading: var(--font-sans);
 
 	--radius-sm: calc(var(--radius) - 4px);
 	--radius-md: calc(var(--radius) - 2px);
