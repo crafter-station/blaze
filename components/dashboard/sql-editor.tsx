@@ -3,6 +3,7 @@
 import { sql as sqlLang } from "@codemirror/lang-sql";
 import CodeMirror from "@uiw/react-codemirror";
 import { CircleAlert, Loader2, Play } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useState, useTransition } from "react";
 import { runQueryAction } from "@/app/actions";
 import type { QueryOutcome } from "@/lib/query";
@@ -14,6 +15,7 @@ export function SqlEditor({ databaseId }: { databaseId: string }) {
 	const [value, setValue] = useState(STARTER);
 	const [result, setResult] = useState<QueryOutcome | null>(null);
 	const [pending, start] = useTransition();
+	const { resolvedTheme } = useTheme();
 
 	function run() {
 		start(async () => setResult(await runQueryAction(databaseId, value)));
@@ -46,7 +48,7 @@ export function SqlEditor({ databaseId }: { databaseId: string }) {
 					value={value}
 					onChange={setValue}
 					extensions={[sqlLang()]}
-					theme="dark"
+					theme={resolvedTheme === "light" ? "light" : "dark"}
 					height="240px"
 					basicSetup={{ lineNumbers: true, foldGutter: false, highlightActiveLine: false }}
 				/>

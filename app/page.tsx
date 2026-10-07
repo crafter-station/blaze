@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Logo } from "@/components/brand/logo";
 import { GridBackdrop } from "@/components/grid-backdrop";
 import { PromptButton } from "@/components/prompt-button";
 import { LIMITS } from "@/lib/limits";
@@ -26,7 +27,7 @@ export default function Home() {
 			 */}
 			<main className="flex h-dvh flex-col overflow-hidden px-6">
 				<header className="flex shrink-0 items-center justify-between py-6">
-					<span className="font-display font-bold text-lg">blaze</span>
+					<Logo size="sm" />
 					<nav className="flex items-center gap-5 text-sm">
 						<Link
 							href="/docs"

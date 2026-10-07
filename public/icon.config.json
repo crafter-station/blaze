@@ -1,0 +1,22 @@
+{
+	"text": null,
+	"svg": "logo.svg",
+	"glyph": null,
+	"glyphBox": 24,
+	"out": ".",
+	"name": "blaze",
+	"shortName": "blaze",
+	"face": "serif-italic",
+	"bg": "#0b0b0c",
+	"fg": "#fafafa",
+	"bgDark": "#1c1c1f",
+	"fgDark": "#0b0b0c",
+	"radius": 7,
+	"scale": 0.58,
+	"padding": 6,
+	"stroke": null,
+	"recolor": false,
+	"darkRasters": false,
+	"svgOnly": false,
+	"themeColor": "#0b0b0c"
+}

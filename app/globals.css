@@ -1,22 +1,33 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "@clerk/themes/shadcn.css";
 
-@custom-variant dark (&:is(.dark *));
+/*
+ * Class-based dark mode, driven by next-themes. `:where` keeps the variant at zero
+ * specificity so a `dark:` utility never out-ranks a plain one by accident.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
 
 /*
  * blaze design tokens.
  *
- * Adopted from opensbx.com and uprizing.me, whose values were read straight out of their
- * compiled stylesheets rather than eyeballed: pure black ground, near-white primary,
- * translucent white borders, a grayscale chart ramp, Geist, and a 0.425rem radius.
+ * Neutral, near-monochrome ground with exactly one hue: the blaze amber. It is rationed
+ * on purpose (well under 5% of any screen) and only ever means one of four things:
  *
- * The system is deliberately monochrome — there is no brand hue. That makes colour itself
- * meaningful: the only saturated things on screen are status (active, suspended, failed),
- * so state reads instantly instead of competing with a decorative accent. It also puts
- * more distance between blaze and Neon than the amber did (PLAN.md Q10).
+ *   1. the primary action on a page,
+ *   2. keyboard focus,
+ *   3. "you are here" in navigation,
+ *   4. the primary series in a chart.
  *
- * Borders are white at 10% opacity rather than a solid grey, so they sit correctly on both
- * the black ground and the raised #161616 cards without needing two separate values.
+ * Everything else is grey. Status colours (success / warning / destructive) are the only
+ * other saturated values, and they are reserved for state so it reads instantly.
+ *
+ * `--brand` is the fill (buttons, dots, chart lines). `--brand-text` is the same hue
+ * tuned for legible text on the page background in each mode, because the fill itself
+ * is far below 4.5:1 on a light ground.
+ *
+ * Radius rule: controls (buttons, inputs, menu items) use `rounded-md`, containers
+ * (cards, dialogs, code blocks) use `rounded-xl`, pills and dots use `rounded-full`.
  */
 
 @theme inline {
@@ -37,107 +48,212 @@
 	--color-destructive: var(--destructive);
 	--color-success: var(--success);
 	--color-warning: var(--warning);
+	--color-brand: var(--brand);
+	--color-brand-text: var(--brand-text);
+	--color-brand-soft: var(--brand-soft);
+	--color-brand-core: var(--brand-core);
 	--color-border: var(--border);
+	--color-border-strong: var(--border-strong);
 	--color-input: var(--input);
 	--color-ring: var(--ring);
 	--color-sidebar: var(--sidebar);
 	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
 	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
 	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-ring: var(--sidebar-ring);
 	--color-chart-1: var(--chart-1);
 	--color-chart-2: var(--chart-2);
 	--color-chart-3: var(--chart-3);
 	--color-chart-4: var(--chart-4);
 	--color-chart-5: var(--chart-5);
 
-	--font-sans: var(--font-geist-sans);
-	--font-mono: var(--font-geist-mono);
+	--font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+	--font-mono: var(--font-geist-mono), ui-monospace, monospace;
 	--font-display: var(--font-doto);
 
-	--radius-sm: calc(var(--radius) * 0.6);
-	--radius-md: calc(var(--radius) * 0.8);
+	--radius-sm: calc(var(--radius) - 4px);
+	--radius-md: calc(var(--radius) - 2px);
 	--radius-lg: var(--radius);
-	--radius-xl: calc(var(--radius) * 1.4);
+	--radius-xl: calc(var(--radius) + 4px);
+	--radius-2xl: calc(var(--radius) + 8px);
+
+	--shadow-xs: 0 1px 2px 0 var(--shadow-color);
+	--shadow-sm: 0 1px 2px 0 var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color);
+	--shadow-md: 0 4px 12px -2px var(--shadow-color), 0 2px 4px -2px var(--shadow-color);
+	--shadow-lg: 0 16px 40px -12px var(--shadow-color), 0 4px 12px -4px var(--shadow-color);
+
+	--ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+	--ease-snappy: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
+/* Light. */
 :root {
+	color-scheme: light;
+
+	--background: #fafafa;
+	--foreground: #0b0b0c;
+
+	--card: #ffffff;
+	--card-foreground: #0b0b0c;
+	--popover: #ffffff;
+	--popover-foreground: #0b0b0c;
+
+	--primary: #f76b15;
+	--primary-foreground: #1a0b00;
+
+	--secondary: #f1f1f2;
+	--secondary-foreground: #0b0b0c;
+	--muted: #f1f1f2;
+	--muted-foreground: #67676f;
+	--accent: #ececee;
+	--accent-foreground: #0b0b0c;
+
+	--brand: #f76b15;
+	--brand-text: #b4470a;
+	--brand-soft: #f76b151a;
+	--brand-core: #ffad66;
+
+	--destructive: #ce2c31;
+	--success: #18794e;
+	--warning: #a35200;
+
+	--border: #0000001a;
+	--border-strong: #0000002b;
+	--input: #00000024;
+	--ring: #f76b15;
+
+	--sidebar: #f4f4f5;
+	--sidebar-foreground: #0b0b0c;
+	--sidebar-primary: #f76b15;
+	--sidebar-primary-foreground: #1a0b00;
+	--sidebar-accent: #e8e8ea;
+	--sidebar-accent-foreground: #0b0b0c;
+	--sidebar-border: #0000001a;
+	--sidebar-ring: #f76b15;
+
+	--chart-1: #f76b15;
+	--chart-2: #52525b;
+	--chart-3: #8b8b93;
+	--chart-4: #b4b4bb;
+	--chart-5: #d4d4d8;
+
+	--shadow-color: #18120d14;
+	--code-background: #f4f4f5;
+
+	--radius: 0.5rem;
+}
+
+/* Dark. Off-black rather than #000, so raised surfaces have somewhere to go. */
+.dark {
 	color-scheme: dark;
 
-	--background: #000000;
-	--foreground: #fafafa;
+	--background: #0a0a0b;
+	--foreground: #ededef;
 
-	--card: #161616;
-	--card-foreground: #fafafa;
-	--popover: #0b0b0b;
-	--popover-foreground: #fafafa;
+	--card: #111113;
+	--card-foreground: #ededef;
+	--popover: #151517;
+	--popover-foreground: #ededef;
 
-	/* Monochrome. Primary actions are near-white on dark, not a brand hue. */
-	--primary: #f8f8f8;
-	--primary-foreground: #1b1b1b;
+	--primary: #ff7a1a;
+	--primary-foreground: #140800;
 
-	--secondary: #262626;
-	--secondary-foreground: #fafafa;
-	--muted: #262626;
-	--muted-foreground: #a1a1a1;
-	--accent: #262626;
-	--accent-foreground: #fafafa;
+	--secondary: #1b1b1e;
+	--secondary-foreground: #ededef;
+	--muted: #1b1b1e;
+	--muted-foreground: #8b8b93;
+	--accent: #1f1f23;
+	--accent-foreground: #ededef;
 
-	/*
-	 * The only saturated colours in the system, reserved for state. Tuned to the same
-	 * softness as the reference destructive so they read as information, not alarm.
-	 */
-	--destructive: #ff6568;
-	--success: #5ed3a3;
+	--brand: #ff7a1a;
+	--brand-text: #ff8f40;
+	--brand-soft: #ff7a1a1f;
+	--brand-core: #ffc27a;
+
+	--destructive: #ff6166;
+	--success: #4cc38a;
 	--warning: #f0b866;
 
-	--border: #ffffff1a;
-	--input: #ffffff26;
-	--ring: #a1a1a1;
+	--border: #ffffff14;
+	--border-strong: #ffffff24;
+	--input: #ffffff1f;
+	--ring: #ff7a1a;
 
-	--sidebar: #000000;
-	--sidebar-foreground: #fafafa;
-	--sidebar-accent: #262626;
-	--sidebar-border: #ffffff1a;
+	--sidebar: #0c0c0e;
+	--sidebar-foreground: #ededef;
+	--sidebar-primary: #ff7a1a;
+	--sidebar-primary-foreground: #140800;
+	--sidebar-accent: #1b1b1e;
+	--sidebar-accent-foreground: #ededef;
+	--sidebar-border: #ffffff12;
+	--sidebar-ring: #ff7a1a;
 
-	/* Grayscale ramp — series are told apart by order and label, not hue. */
-	--chart-1: #d4d4d4;
-	--chart-2: #a1a1a1;
-	--chart-3: #737373;
-	--chart-4: #525252;
-	--chart-5: #404040;
+	--chart-1: #ff7a1a;
+	--chart-2: #d4d4d8;
+	--chart-3: #a1a1aa;
+	--chart-4: #71717a;
+	--chart-5: #52525b;
 
-	--radius: 0.425rem;
+	--shadow-color: #00000066;
+	--code-background: #0e0e10;
 }
 
 @layer base {
 	* {
 		border-color: var(--border);
+		outline-color: color-mix(in oklab, var(--ring) 60%, transparent);
 	}
 
-	/*
-	 * Root size drives every rem-based Tailwind step, so one value tightens the whole
-	 * scale at once rather than 60 hand-tuned class changes that drift apart later.
-	 * 15px reads denser without crossing into unreadable — this is a console people stare
-	 * at, not a marketing page.
-	 */
 	html {
-		font-size: 15px;
+		-webkit-text-size-adjust: 100%;
+		text-rendering: optimizeLegibility;
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		html {
+			scroll-behavior: smooth;
+		}
 	}
 
 	body {
 		background: var(--background);
 		color: var(--foreground);
-		font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+		font-family: var(--font-sans);
 		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
 	}
 
-	/* Connection strings, ids and metrics get read character by character, and tabular
+	::selection {
+		background: color-mix(in oklab, var(--brand) 28%, transparent);
+	}
+
+	h1,
+	h2,
+	h3 {
+		text-wrap: balance;
+	}
+
+	p {
+		text-wrap: pretty;
+	}
+
+	/* Connection strings, ids and metrics are read character by character, and tabular
 	   figures stop numbers jittering as they update. */
 	code,
 	pre,
-	kbd {
-		font-family: var(--font-geist-mono), ui-monospace, monospace;
+	kbd,
+	samp {
+		font-family: var(--font-mono);
 		font-variant-numeric: tabular-nums;
+	}
+
+	/* Hairline scrollbars that sit inside the palette instead of the OS default. */
+	* {
+		scrollbar-width: thin;
+		scrollbar-color: var(--border-strong) transparent;
 	}
 }
 
@@ -145,8 +261,7 @@
  * Landing backdrop motion.
  *
  * Both layers translate a double-height element from -50% to 0, so the tile boundary
- * never enters the viewport and the loop has no visible seam. The two speeds differ on
- * purpose: matched speeds read as one flat sheet, mismatched ones read as depth.
+ * never enters the viewport and the loop has no visible seam.
  */
 @keyframes blaze-drift {
 	from {
@@ -181,31 +296,6 @@
 	animation: blaze-pulse 9s ease-in-out infinite;
 }
 
-/*
- * A full-viewport field in constant motion is exactly the kind of thing that triggers
- * vestibular symptoms. The composition is built to work standing still, so this simply
- * stops it rather than substituting a lesser animation.
- */
-@media (prefers-reduced-motion: reduce) {
-	.blaze-drift,
-	.blaze-drift-slow,
-	.blaze-pulse {
-		animation: none;
-	}
-
-	.blaze-drift,
-	.blaze-drift-slow {
-		transform: translate3d(0, -25%, 0);
-	}
-}
-
-/*
- * Sparkle twinkle for the landing CTA.
- *
- * Scale and opacity together rather than opacity alone: a star that only fades reads as a
- * rendering glitch, while one that also shrinks reads as a twinkle. Staggered per element
- * via inline animation-delay so they never pulse in unison.
- */
 @keyframes blaze-sparkle {
 	0%,
 	100% {
@@ -222,9 +312,35 @@
 	animation: blaze-sparkle 3.4s ease-in-out infinite;
 }
 
+/* The flame's core dots flicker out of phase, so the mark reads as lit, not printed. */
+@keyframes blaze-flicker {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	45% {
+		opacity: 0.55;
+	}
+	60% {
+		opacity: 0.9;
+	}
+}
+
+.blaze-flicker {
+	animation: blaze-flicker 2.8s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-	.blaze-sparkle {
+	.blaze-drift,
+	.blaze-drift-slow,
+	.blaze-pulse,
+	.blaze-sparkle,
+	.blaze-flicker {
 		animation: none;
-		opacity: 0.65;
+	}
+
+	.blaze-drift,
+	.blaze-drift-slow {
+		transform: translate3d(0, -25%, 0);
 	}
 }

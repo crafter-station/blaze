@@ -1,6 +1,8 @@
 import { UserButton } from "@clerk/nextjs";
 import { CircleHelp } from "lucide-react";
 import Link from "next/link";
+import { Isotype } from "@/components/brand/logo";
+import { ThemeToggle } from "@/components/theme/toggle";
 
 /**
  * Top bar in Neon's shape: brand tile, workspace scope with plan pill, then health,
@@ -23,10 +25,10 @@ export function TopBar({
 			<div className="flex h-16 items-center gap-4 px-6">
 				<Link
 					href="/projects"
-					className="flex size-10 items-center justify-center rounded-lg bg-primary font-display font-bold text-primary-foreground text-xl"
+					className="flex size-9 items-center justify-center rounded-lg border border-border bg-card"
 					aria-label="blaze"
 				>
-					b
+					<Isotype className="h-5" />
 				</Link>
 
 				<div className="flex items-center gap-2">
@@ -64,6 +66,7 @@ export function TopBar({
 						<CircleHelp className="size-[18px]" />
 					</a>
 
+					<ThemeToggle />
 					<UserButton />
 				</div>
 			</div>
