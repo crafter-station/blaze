@@ -1,0 +1,102 @@
+# Local development stack — never deployed.
+#
+#   docker compose -f docker-compose.dev.yaml up -d
+#   bun run dev:seed -- --email you+clerk_test@example.com
+#
+# One control-plane Postgres (blaze's own database) plus one instance of every SQL engine,
+# each holding a single tenant database owned by an unprivileged role, exactly like the
+# shared instances in production. The SQL console connects as that role, so grants behave
+# the way they do for real tenants. Host ports are deliberately off the defaults so this
+# never collides with a Postgres or MySQL already running on the machine.
+#
+# See README → "Local SQL engines".
+
+name: blaze-dev
+
+services:
+  control:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: blaze
+      POSTGRES_PASSWORD: blaze
+      POSTGRES_DB: blaze
+    ports:
+      - "127.0.0.1:54320:5432"
+    volumes:
+      - control:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U blaze -d blaze"]
+      interval: 2s
+      retries: 30
+
+  postgres:
+    image: postgres:18
+    # TLS on, with the image's snakeoil certificate: the tenant connection path insists on
+    # an encrypted hop (sslmode=no-verify), as it does against the real instances.
+    command:
+      - postgres
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem
+      - -c
+      - ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "127.0.0.1:54321:5432"
+    volumes:
+      - postgres:/var/lib/postgresql
+      - ./dev/postgres-init.sql:/docker-entrypoint-initdb.d/10-tenant.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      retries: 30
+
+  mysql:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      # The image creates this user with ALL on this database and nothing else.
+      MYSQL_DATABASE: db_shop_dev
+      MYSQL_USER: u_shop_dev
+      MYSQL_PASSWORD: devpassword-shop
+    ports:
+      - "127.0.0.1:33061:3306"
+    volumes:
+      - mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -proot --silent"]
+      interval: 3s
+      retries: 40
+
+  mariadb:
+    image: mariadb:11
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: db_shop_dev
+      MARIADB_USER: u_shop_dev
+      MARIADB_PASSWORD: devpassword-shop
+    ports:
+      - "127.0.0.1:33062:3306"
+    volumes:
+      - mariadb:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 3s
+      retries: 40
+
+  libsql:
+    image: ghcr.io/tursodatabase/libsql-server:v0.24.32
+    ports:
+      - "127.0.0.1:58080:8080"
+    volumes:
+      - libsql:/var/lib/sqld
+
+volumes:
+  control:
+  postgres:
+  mysql:
+  mariadb:
+  libsql:

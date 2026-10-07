@@ -78,6 +78,20 @@ const schema = z.object({
 	 */
 	CRON_SECRET: z.string().min(16).optional(),
 
+	/**
+	 * Server-side key for the SQL console's assistant. Optional: without it the assistant
+	 * is hidden and the console works exactly as before.
+	 */
+	ANTHROPIC_API_KEY: z.string().min(1).optional(),
+
+	/**
+	 * Dev-only tenant redirect (lib/dev-override.ts). Read straight from `process.env` there
+	 * and ignored in production; listed here so the whole environment is documented in one
+	 * place.
+	 */
+	TENANT_HOST_OVERRIDE: z.string().optional(),
+	TENANT_PORT_OVERRIDE: z.string().optional(),
+
 	NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 

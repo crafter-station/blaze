@@ -51,6 +51,21 @@ function placeholders(record: Record_, count: number): string[] {
 export async function listTables(record: Record_): Promise<TableRef[]> {
 	const connection = await connectTenant(record, 20_000);
 	try {
+		// SQLite has no information_schema; its catalog is sqlite_master, and the only
+		// schema a tenant has is `main`.
+		if (record.engine === "libsql") {
+			const result = await connection.query(
+				`SELECT name, type FROM sqlite_master
+				 WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_litestream%'
+				 ORDER BY name`,
+			);
+			return result.rows.map((row) => ({
+				schema: "main",
+				name: String(row[0]),
+				type: row[1] === "view" ? "view" : "table",
+			}));
+		}
+
 		const system = systemSchemas(record.engine);
 		const marks = placeholders(record, system.length).join(", ");
 
@@ -90,8 +105,15 @@ export async function readTablePage(
 	try {
 		const [p1, p2] = placeholders(record, 2);
 
-		const columns = await connection.query(
-			`SELECT c.column_name, c.data_type, c.is_nullable,
+		const columns =
+			record.engine === "libsql"
+				? await connection.query(
+						`SELECT name, type, CASE WHEN "notnull" = 1 THEN 'NO' ELSE 'YES' END, CASE WHEN pk > 0 THEN 1 ELSE 0 END
+						 FROM pragma_table_info(?) ORDER BY cid`,
+						[match.name],
+					)
+				: await connection.query(
+						`SELECT c.column_name, c.data_type, c.is_nullable,
 			        CASE WHEN pk.column_name IS NULL THEN 0 ELSE 1 END AS is_pk
 			 FROM information_schema.columns c
 			 LEFT JOIN (
@@ -106,8 +128,8 @@ export async function readTablePage(
 			 ) pk ON c.column_name = pk.column_name
 			 WHERE c.table_schema = ${p1} AND c.table_name = ${p2}
 			 ORDER BY c.ordinal_position`,
-			record.engine === "postgres" ? [schema, table] : [schema, table, schema, table],
-		);
+						record.engine === "postgres" ? [schema, table] : [schema, table, schema, table],
+					);
 
 		const qualified = quoteQualified(record.engine, match.schema, match.name);
 

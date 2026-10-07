@@ -24,6 +24,36 @@ bun run db:migrate
 bun dev
 ```
 
+## Local SQL engines
+
+`docker-compose.dev.yaml` runs a local control-plane Postgres plus one instance of every
+SQL engine (Postgres 18, MySQL 8, MariaDB 11, libSQL), each holding a seeded shop database
+(customers, products, orders, order items — foreign keys, indexes, a JSON column, NULLs,
+~1.2k orders) owned by an unprivileged tenant role, the same shape a real tenant gets.
+
+```bash
+docker compose -f docker-compose.dev.yaml up -d
+# Applies migrations to the *local* control DB, seeds every engine, and registers one
+# database per engine for that Clerk (development instance) user.
+bun run dev:seed -- --email you+clerk_test@example.com
+```
+
+Then start the app against the local control DB, with the dev-only tenant redirect:
+
+```bash
+DATABASE_URL=postgresql://blaze:blaze@127.0.0.1:54320/blaze TENANT_HOST_OVERRIDE=127.0.0.1 TENANT_PORT_OVERRIDE=postgres=54321,mysql=33061,mariadb=33062,libsql=58080 bun dev
+```
+
+Process environment wins over `.env.local`, so this never touches a remote control DB.
+The seeded instance rows keep production-shaped hosts (`blaze-dev-postgres:5433`);
+`TENANT_HOST_OVERRIDE` / `TENANT_PORT_OVERRIDE` are what point them at the containers, and
+both are ignored when `NODE_ENV=production` (see `lib/dev-override.ts`). To point any other
+database record at a local engine, give its instance the engine's default port and add that
+engine to `TENANT_PORT_OVERRIDE`.
+
+`docker compose -f docker-compose.dev.yaml down -v` throws everything away; re-run
+`dev:seed` to start over (it is idempotent anyway).
+
 ## Layout
 
 ```
@@ -51,6 +81,7 @@ because the dashboard renders a working connection string; API keys never do.
 ## Scripts
 
 ```bash
-bun dev            bun run build       bun run lint
+bun dev            bun run build       bun run lint       bun run test
+bun run dev:seed
 bun run db:generate   db:migrate   db:push   db:studio
 ```

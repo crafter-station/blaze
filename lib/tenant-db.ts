@@ -1,8 +1,11 @@
 import "server-only";
+import { createClient } from "@libsql/client";
 import mysql from "mysql2/promise";
 import { Client } from "pg";
 import { tenantInternalConnectionString } from "./connection";
 import type { Database, Instance } from "./control/schema";
+import { decryptSecret } from "./crypto";
+import { resolveTenantTarget } from "./dev-override";
 
 /**
  * One query interface over every engine, connecting **as the tenant's own role**.
@@ -22,6 +25,8 @@ export interface TenantResult {
 	rowCount: number;
 	/** e.g. "CREATE TABLE". The only feedback a non-SELECT statement gives. */
 	command?: string;
+	/** Engine type name per column where the driver reports one, e.g. `int4`, `JSON`. */
+	columnTypes?: string[];
 }
 
 export interface TenantConnection {
@@ -31,15 +36,122 @@ export interface TenantConnection {
 
 type Record_ = Database & { instance: Instance };
 
+/** Where the tenant's engine is reached. Only a dev build can redirect it — see dev-override. */
+function target(record: Record_) {
+	return resolveTenantTarget(record.engine, {
+		host: record.instance.internalHost,
+		port: record.instance.port,
+	});
+}
+
 function url(record: Record_): string {
+	const { host, port } = target(record);
 	return tenantInternalConnectionString(
 		record.engine,
-		record.instance.internalHost,
-		record.instance.port,
+		host,
+		port,
 		record.dbName,
 		record.roleName,
 		record.passwordEnc,
 	);
+}
+
+/** node-postgres reports column types as OIDs; these are the ones worth naming. */
+const PG_TYPES: Record<number, string> = {
+	16: "bool",
+	17: "bytea",
+	18: "char",
+	19: "name",
+	20: "int8",
+	21: "int2",
+	23: "int4",
+	25: "text",
+	26: "oid",
+	114: "json",
+	142: "xml",
+	199: "json[]",
+	650: "cidr",
+	700: "float4",
+	701: "float8",
+	790: "money",
+	829: "macaddr",
+	869: "inet",
+	1000: "bool[]",
+	1005: "int2[]",
+	1007: "int4[]",
+	1009: "text[]",
+	1015: "varchar[]",
+	1016: "int8[]",
+	1021: "float4[]",
+	1022: "float8[]",
+	1042: "bpchar",
+	1043: "varchar",
+	1082: "date",
+	1083: "time",
+	1114: "timestamp",
+	1184: "timestamptz",
+	1186: "interval",
+	1231: "numeric[]",
+	1266: "timetz",
+	1560: "bit",
+	1562: "varbit",
+	1700: "numeric",
+	2249: "record",
+	2278: "void",
+	2950: "uuid",
+	2951: "uuid[]",
+	3614: "tsvector",
+	3802: "jsonb",
+	3807: "jsonb[]",
+};
+
+/** mysql2 column type codes (`FieldPacket.columnType`). */
+const MYSQL_TYPES: Record<number, string> = {
+	0: "DECIMAL",
+	1: "TINYINT",
+	2: "SMALLINT",
+	3: "INT",
+	4: "FLOAT",
+	5: "DOUBLE",
+	6: "NULL",
+	7: "TIMESTAMP",
+	8: "BIGINT",
+	9: "MEDIUMINT",
+	10: "DATE",
+	11: "TIME",
+	12: "DATETIME",
+	13: "YEAR",
+	15: "VARCHAR",
+	16: "BIT",
+	245: "JSON",
+	246: "DECIMAL",
+	247: "ENUM",
+	248: "SET",
+	249: "TINYBLOB",
+	250: "MEDIUMBLOB",
+	251: "LONGBLOB",
+	252: "BLOB",
+	253: "VARCHAR",
+	254: "CHAR",
+	255: "GEOMETRY",
+};
+
+function mysqlTypeName(field: mysql.FieldPacket): string {
+	const code = (field as unknown as { columnType?: number }).columnType ?? field.type ?? -1;
+	const name = MYSQL_TYPES[code] ?? "UNKNOWN";
+	// Charset 63 is `binary`: a BLOB with any other charset is a TEXT column.
+	if (name.endsWith("BLOB") && field.characterSet !== 63) return name.replace("BLOB", "TEXT");
+	return name;
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	return Promise.race([
+		promise,
+		new Promise<never>((_, reject) => {
+			timer = setTimeout(() => reject(new Error("Query timed out")), timeoutMs);
+		}),
+	]).finally(() => clearTimeout(timer));
 }
 
 async function connectPostgres(record: Record_, timeoutMs: number): Promise<TenantConnection> {
@@ -57,13 +169,14 @@ async function connectPostgres(record: Record_, timeoutMs: number): Promise<Tena
 			// a caller means by "the result", matching how psql reports a batch.
 			const last = (Array.isArray(result) ? result[result.length - 1] : result) as {
 				rows?: unknown[][];
-				fields?: { name: string }[];
+				fields?: { name: string; dataTypeID: number }[];
 				rowCount?: number | null;
 				command?: string;
 			};
 			const rows = last.rows ?? [];
 			return {
 				columns: last.fields?.map((f) => f.name) ?? [],
+				columnTypes: last.fields?.map((f) => PG_TYPES[f.dataTypeID] ?? `oid ${f.dataTypeID}`),
 				rows,
 				rowCount: last.rowCount ?? rows.length,
 				command: last.command,
@@ -93,12 +206,10 @@ async function connectMysql(record: Record_, timeoutMs: number): Promise<TenantC
 
 	return {
 		async query(sql, params) {
-			const [rows, fields] = (await Promise.race([
+			const [rows, fields] = (await withTimeout(
 				conn.query({ sql, values: params }),
-				new Promise((_, reject) =>
-					setTimeout(() => reject(new Error("Query timed out")), timeoutMs),
-				),
-			])) as [unknown, mysql.FieldPacket[] | undefined];
+				timeoutMs,
+			)) as [unknown, mysql.FieldPacket[] | undefined];
 
 			/*
 			 * mysql2's result shape depends on the statement, and getting this wrong is silent:
@@ -139,9 +250,11 @@ async function connectMysql(record: Record_, timeoutMs: number): Promise<TenantC
 				};
 			}
 
+			// Filter before mapping: a batch's field array can still carry undefined slots.
+			const present = (finalFields ?? []).filter(Boolean);
 			return {
-				// Filter before mapping: a batch's field array can still carry undefined slots.
-				columns: (finalFields ?? []).filter(Boolean).map((f) => f.name),
+				columns: present.map((f) => f.name),
+				columnTypes: present.map(mysqlTypeName),
 				rows: finalRows as unknown[][],
 				rowCount: (finalRows as unknown[][]).length,
 				command: "SELECT",
@@ -149,6 +262,41 @@ async function connectMysql(record: Record_, timeoutMs: number): Promise<TenantC
 		},
 		async close() {
 			await conn.end().catch(() => {});
+		},
+	};
+}
+
+/**
+ * libSQL speaks HTTP (Hrana) rather than a socket protocol, so a "connection" is a client
+ * object. The tenant's token is its password, exactly as in the connection string the
+ * dashboard hands out.
+ */
+async function connectLibsql(record: Record_, timeoutMs: number): Promise<TenantConnection> {
+	const { host, port } = target(record);
+	const client = createClient({
+		url: `http://${host}:${port}`,
+		authToken: decryptSecret(record.passwordEnc),
+	});
+
+	return {
+		async query(sql, params) {
+			const result = await withTimeout(
+				client.execute({ sql, args: (params ?? []) as never[] }),
+				timeoutMs,
+			);
+			const columns = result.columns;
+			const rows = result.rows.map((row) => columns.map((_, index) => row[index]));
+			const returnsRows = columns.length > 0;
+			return {
+				columns,
+				columnTypes: result.columnTypes.map((type) => type || "ANY"),
+				rows,
+				rowCount: returnsRows ? rows.length : result.rowsAffected,
+				command: returnsRows ? "SELECT" : "OK",
+			};
+		},
+		async close() {
+			client.close();
 		},
 	};
 }
@@ -163,6 +311,8 @@ export async function connectTenant(
 		case "mysql":
 		case "mariadb":
 			return connectMysql(record, timeoutMs);
+		case "libsql":
+			return connectLibsql(record, timeoutMs);
 		default:
 			throw new Error(`Queries are not supported for ${record.engine} yet`);
 	}
@@ -170,7 +320,9 @@ export async function connectTenant(
 
 /** Identifier quoting differs per engine and cannot be parameterised. */
 export function quoteQualified(engine: Database["engine"], schema: string, table: string): string {
-	return engine === "postgres" ? `"${schema}"."${table}"` : `\`${schema}\`.\`${table}\``;
+	return engine === "postgres" || engine === "libsql"
+		? `"${schema}"."${table}"`
+		: `\`${schema}\`.\`${table}\``;
 }
 
 /** Schemas that belong to the engine, not the tenant. */
