@@ -231,6 +231,14 @@
 		-moz-osx-font-smoothing: grayscale;
 	}
 
+	a,
+	button,
+	[role="button"],
+	label,
+	summary {
+		touch-action: manipulation;
+	}
+
 	::selection {
 		background: color-mix(in oklab, var(--brand) 28%, transparent);
 	}

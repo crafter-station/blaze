@@ -54,15 +54,15 @@ export default async function DatabasesPage() {
 						action={<CreateDatabase atQuota={atQuota} />}
 					/>
 				) : (
-					<Table className="min-w-[760px]">
+					<Table className="md:min-w-[760px]">
 						<TableHeader>
 							<TableRow className="hover:bg-transparent">
 								<TableHead>Name</TableHead>
-								<TableHead>Engine</TableHead>
+								<TableHead className="hidden md:table-cell">Engine</TableHead>
 								<TableHead>Status</TableHead>
-								<TableHead className="text-right">Size</TableHead>
-								<TableHead>Created</TableHead>
-								<TableHead>Expires</TableHead>
+								<TableHead className="hidden text-right md:table-cell">Size</TableHead>
+								<TableHead className="hidden lg:table-cell">Created</TableHead>
+								<TableHead className="hidden lg:table-cell">Expires</TableHead>
 								<TableHead>
 									<span className="sr-only">Open</span>
 								</TableHead>
@@ -85,19 +85,19 @@ export default async function DatabasesPage() {
 											</span>
 										</Link>
 									</TableCell>
-									<TableCell className="text-muted-foreground">
+									<TableCell className="hidden text-muted-foreground md:table-cell">
 										{ENGINE_CONFIG[row.engine].label}
 									</TableCell>
 									<TableCell>
 										<StatusPill status={row.status} />
 									</TableCell>
-									<TableCell className="text-right font-mono text-[0.8125rem] text-muted-foreground tabular-nums">
+									<TableCell className="hidden text-right font-mono md:table-cell text-[0.8125rem] text-muted-foreground tabular-nums">
 										{formatBytes(row.sizeBytes)}
 									</TableCell>
-									<TableCell className="text-muted-foreground">
+									<TableCell className="hidden text-muted-foreground lg:table-cell">
 										{formatDate(row.createdAt)}
 									</TableCell>
-									<TableCell className="text-muted-foreground">
+									<TableCell className="hidden text-muted-foreground lg:table-cell">
 										{formatExpiry(row.expiresAt) ?? (
 											<span className="text-muted-foreground/50">Never</span>
 										)}

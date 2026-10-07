@@ -92,6 +92,7 @@ export function DeleteAccount({ email, databaseCount }: { email: string; databas
 							onChange={(e) => setValue(e.target.value)}
 							placeholder={email}
 							autoComplete="off"
+							spellCheck={false}
 							className="font-mono"
 						/>
 					</div>
@@ -103,7 +104,7 @@ export function DeleteAccount({ email, databaseCount }: { email: string; databas
 						</DialogClose>
 						<Button type="submit" variant="destructive" disabled={!matches || pending}>
 							{pending && <Loader2 className="animate-spin" data-icon="inline-start" />}
-							{pending ? "Deleting" : "Delete everything"}
+							{pending ? "Deleting…" : "Delete everything"}
 						</Button>
 					</DialogFooter>
 				</form>

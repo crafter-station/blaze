@@ -91,6 +91,7 @@ export function CreateApiKey({ atLimit }: { atLimit: boolean }) {
 									name="name"
 									placeholder="production agent"
 									autoComplete="off"
+									spellCheck={false}
 									autoFocus
 								/>
 							</div>
@@ -102,7 +103,7 @@ export function CreateApiKey({ atLimit }: { atLimit: boolean }) {
 								</DialogClose>
 								<Button type="submit" disabled={pending}>
 									{pending && <Loader2 className="animate-spin" data-icon="inline-start" />}
-									{pending ? "Creating" : "Create key"}
+									{pending ? "Creating…" : "Create key"}
 								</Button>
 							</DialogFooter>
 						</form>
@@ -236,7 +237,7 @@ export function RevokeApiKey({ id, name }: { id: string; name: string }) {
 					<AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
 					<AlertDialogAction variant="destructive" onClick={revoke} disabled={pending}>
 						{pending && <Loader2 className="animate-spin" data-icon="inline-start" />}
-						{pending ? "Revoking" : "Revoke key"}
+						{pending ? "Revoking…" : "Revoke key"}
 					</AlertDialogAction>
 				</AlertDialogFooter>
 			</AlertDialogContent>

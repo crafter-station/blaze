@@ -49,13 +49,13 @@ export default async function ApiKeysPage() {
 						action={<CreateApiKey atLimit={atLimit} />}
 					/>
 				) : (
-					<Table className="min-w-[640px]">
+					<Table className="md:min-w-[640px]">
 						<TableHeader>
 							<TableRow className="hover:bg-transparent">
 								<TableHead>Name</TableHead>
 								<TableHead>Key</TableHead>
-								<TableHead>Created</TableHead>
-								<TableHead>Last used</TableHead>
+								<TableHead className="hidden md:table-cell">Created</TableHead>
+								<TableHead className="hidden sm:table-cell">Last used</TableHead>
 								<TableHead>
 									<span className="sr-only">Actions</span>
 								</TableHead>
@@ -75,10 +75,10 @@ export default async function ApiKeysPage() {
 									<TableCell className="font-mono text-[0.8125rem] text-muted-foreground">
 										{key.keyPrefix}…
 									</TableCell>
-									<TableCell className="text-muted-foreground">
+									<TableCell className="hidden text-muted-foreground md:table-cell">
 										{formatDate(key.createdAt)}
 									</TableCell>
-									<TableCell className="text-muted-foreground">
+									<TableCell className="hidden text-muted-foreground sm:table-cell">
 										{formatLastUsed(key.lastUsedAt)}
 									</TableCell>
 									<TableCell className="text-right">

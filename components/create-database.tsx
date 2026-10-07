@@ -96,7 +96,13 @@ export function CreateDatabase({ atQuota }: { atQuota: boolean }) {
 				<form action={submit} className="grid gap-5">
 					<div className="grid gap-2">
 						<Label htmlFor="db-name">Name</Label>
-						<Input id="db-name" name="name" placeholder="my-app" autoComplete="off" autoFocus />
+						<Input
+							id="db-name"
+							name="name"
+							placeholder="my-app"
+							autoComplete="off"
+							spellCheck={false}
+						/>
 					</div>
 
 					<div className="grid gap-4 sm:grid-cols-2">
@@ -150,7 +156,7 @@ export function CreateDatabase({ atQuota }: { atQuota: boolean }) {
 						</DialogClose>
 						<Button type="submit" disabled={pending}>
 							{pending && <Loader2 className="animate-spin" data-icon="inline-start" />}
-							{pending ? "Provisioning" : "Create database"}
+							{pending ? "Provisioning…" : "Create database"}
 						</Button>
 					</DialogFooter>
 				</form>
@@ -222,7 +228,7 @@ export function DeleteDatabase({
 					<AlertDialogCancel disabled={pending}>Keep it</AlertDialogCancel>
 					<AlertDialogAction variant="destructive" onClick={remove} disabled={pending}>
 						{pending && <Loader2 className="animate-spin" data-icon="inline-start" />}
-						{pending ? "Deleting" : "Delete permanently"}
+						{pending ? "Deleting…" : "Delete permanently"}
 					</AlertDialogAction>
 				</AlertDialogFooter>
 			</AlertDialogContent>

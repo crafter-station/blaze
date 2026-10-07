@@ -58,7 +58,7 @@ export function ResetPassword({ id }: { id: string }) {
 					<AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
 					<AlertDialogAction onClick={reset} disabled={pending}>
 						{pending && <Loader2 className="animate-spin" data-icon="inline-start" />}
-						{pending ? "Rotating" : "Rotate password"}
+						{pending ? "Rotating…" : "Rotate password"}
 					</AlertDialogAction>
 				</AlertDialogFooter>
 			</AlertDialogContent>

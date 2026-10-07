@@ -30,7 +30,7 @@ export function SampleNow({ id }: { id: string }) {
 			) : (
 				<RefreshCw data-icon="inline-start" />
 			)}
-			{pending ? "Sampling" : "Sample now"}
+			{pending ? "Sampling…" : "Sample now"}
 		</Button>
 	);
 }

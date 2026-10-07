@@ -123,7 +123,7 @@ export function SqlEditor({ databaseId }: { databaseId: string }) {
 							) : (
 								<Play data-icon="inline-start" />
 							)}
-							{pending ? "Running" : "Run"}
+							{pending ? "Running…" : "Run"}
 						</Button>
 					</div>
 				</div>
