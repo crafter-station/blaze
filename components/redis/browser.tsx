@@ -160,9 +160,13 @@ export function KeyBrowser({ databaseId, databaseName, suspended }: KeyBrowserPr
 
 	/* ---------------- keyspace ---------------- */
 
-	const [filter, setFilter] = useState("");
-	const [pattern, setPattern] = useState("*");
-	const [type, setType] = useState<string>("all");
+	// The filter lives in the URL too (?q=&type=), so a filtered view can be shared or reloaded.
+	const [filter, setFilter] = useState(() => searchParams.get("q") ?? "");
+	const [pattern, setPattern] = useState(() => toPattern(searchParams.get("q") ?? ""));
+	const [type, setType] = useState<string>(() => {
+		const initial = searchParams.get("type");
+		return initial && FILTERABLE_TYPES.includes(initial) ? initial : "all";
+	});
 	const [view, setView] = useState<TreeView>("tree");
 	const [scan, setScan] = useState<ScanState>(EMPTY_SCAN);
 	const [memory, setMemory] = useState<Record<string, number | null>>({});
@@ -234,6 +238,20 @@ export function KeyBrowser({ databaseId, databaseName, suspended }: KeyBrowserPr
 		const timer = setTimeout(() => setPattern(toPattern(filter)), 300);
 		return () => clearTimeout(timer);
 	}, [filter]);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: written when the applied filter changes.
+	useEffect(() => {
+		const params = new URLSearchParams(window.location.search);
+		const q = filter.trim();
+		if (q) params.set("q", q);
+		else params.delete("q");
+		if (type !== "all") params.set("type", type);
+		else params.delete("type");
+		const query = params.toString();
+		if (query !== window.location.search.replace(/^\?/, "")) {
+			router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+		}
+	}, [pattern, type]);
 
 	const requested = useRef(new Set<string>());
 	const loadMemory = useCallback(
@@ -434,7 +452,7 @@ export function KeyBrowser({ databaseId, databaseName, suspended }: KeyBrowserPr
 						onKeyDown={(e) => {
 							if (e.key === "Enter") setPattern(toPattern(filter));
 						}}
-						placeholder="Filter: name, or a glob like user:*"
+						placeholder="Name or glob, like user:*…"
 						spellCheck={false}
 						autoComplete="off"
 						className="h-8 w-full rounded-md border border-input bg-background pr-2 pl-8 font-mono text-[0.75rem] outline-none transition-colors placeholder:font-sans placeholder:text-[0.8125rem] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25"
@@ -648,11 +666,6 @@ export function KeyBrowser({ databaseId, databaseName, suspended }: KeyBrowserPr
 								</span>
 							)}
 						</Button>
-						{selected && (
-							<span className="min-w-0 truncate font-mono text-muted-foreground text-xs">
-								{keyLabel(selected)}
-							</span>
-						)}
 					</div>
 					{keyPanel}
 					<Sheet open={keySheet} onOpenChange={setKeySheet}>
@@ -792,7 +805,8 @@ function KeyPanel({
 }) {
 	const meta = details?.meta;
 	const name = keyLabel(selected);
-	const consoleCommand = inspectCommand(meta?.type ?? "string", selected);
+	// Only once the type is known: a hash opened as GET would just fail.
+	const consoleCommand = meta && meta.type !== "none" ? inspectCommand(meta.type, selected) : null;
 
 	return (
 		<section aria-label={`Key ${name}`} className="flex min-h-0 flex-1 flex-col">
@@ -880,15 +894,22 @@ function KeyPanel({
 					)}
 					<div className="ml-auto flex flex-wrap items-center gap-1">
 						{actions}
-						<Button variant="outline" size="xs" asChild>
-							<Link
-								href={`/databases/${databaseId}/console?cmd=${encodeURIComponent(consoleCommand)}`}
-								title={consoleCommand}
-							>
+						{consoleCommand ? (
+							<Button variant="outline" size="xs" asChild>
+								<Link
+									href={`/databases/${databaseId}/console?cmd=${encodeURIComponent(consoleCommand)}`}
+									title={consoleCommand}
+								>
+									<SquareTerminal data-icon="inline-start" />
+									Open in console
+								</Link>
+							</Button>
+						) : (
+							<Button variant="outline" size="xs" disabled>
 								<SquareTerminal data-icon="inline-start" />
 								Open in console
-							</Link>
-						</Button>
+							</Button>
+						)}
 					</div>
 				</div>
 			</header>

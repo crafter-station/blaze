@@ -152,6 +152,7 @@ export function KeyTree({
 				ref={scrollRef}
 				role="tree"
 				aria-label="Keys"
+				translate="no"
 				tabIndex={0}
 				aria-activedescendant={rows.length ? `${id}-${focus}` : undefined}
 				onKeyDown={onKeyDown}

@@ -59,7 +59,7 @@ import {
 import { classify } from "@/lib/redis/classify";
 import { type CommandIndex, keyPositions, lookupCommand, renderSyntax } from "@/lib/redis/commands";
 import { encodeKeyRef } from "@/lib/redis/keys";
-import { formatReply } from "@/lib/redis/reply";
+import { formatReply, isOomError } from "@/lib/redis/reply";
 import { commandLines, tokenize } from "@/lib/redis/tokenize";
 import type { CommandOutcome } from "@/lib/redis/types";
 import { cn } from "@/lib/utils";
@@ -1074,7 +1074,11 @@ function TranscriptBlock({
 						command={command}
 						onOpenKey={onOpenKey}
 						onFix={
-							onFix && !outcome.ok && (outcome.kind === "syntax" || outcome.reply?.t === "error")
+							onFix &&
+							!outcome.ok &&
+							// A full database is not a mistake in the command; a rewrite will not help.
+							!(outcome.reply?.t === "error" && isOomError(outcome.reply.v)) &&
+							(outcome.kind === "syntax" || outcome.reply?.t === "error")
 								? () =>
 										onFix(
 											block.line,
@@ -1123,6 +1127,7 @@ function CommandEcho({
 					type="button"
 					onClick={() => onOpenKey(encodeKeyRef(token.bytes))}
 					title={`Open ${token.text} in the Browser`}
+					aria-label={`Open ${token.text} in the Browser`}
 					className="rounded-sm underline decoration-border-strong decoration-dotted underline-offset-4 hover:text-brand-text hover:decoration-brand focus-visible:outline-2 focus-visible:outline-ring"
 				>
 					{source}

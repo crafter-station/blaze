@@ -305,7 +305,7 @@ export function CommandInput({
 				maxRenderedOptions: 60,
 			}),
 			EditorView.lineWrapping,
-			placeholder("Type a command, e.g. SCAN 0 MATCH user:* COUNT 20"),
+			placeholder("Type a command, like SCAN 0 MATCH user:* COUNT 20…"),
 			EditorView.contentAttributes.of({
 				"aria-label": label,
 				translate: "no",

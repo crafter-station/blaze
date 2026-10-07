@@ -76,6 +76,12 @@ filter, keys with TTLs and a few awkward names, across `user:*`, `session:*`, `c
 and more. It registers the database as `/databases/db_cachedevrds2/browser` (the Browser)
 and `/databases/db_cachedevrds2/console` (the Console). `--only redis` reseeds just Redis.
 
+`e2e/redis-console.mjs` drives the Browser and Console end to end against it (tree, every
+type viewer, editing, TTL, rename, delete and bulk delete, the console's completion,
+hints, blocked and blocking commands, a full database, cross-links, and Ask AI against
+`e2e/mock-openai.ts`), in dark and light at 1440 and 390 px. It only writes `e2e:*` and
+`fill:*` keys and removes them afterwards.
+
 ```bash
 # Connect from your machine the way a tenant would:
 docker exec -it blaze-dev-redis-1 redis-cli --tls --insecure --user default --pass devpassword-cache

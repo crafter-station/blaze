@@ -185,6 +185,23 @@ provisioner behind the flag; Redis and libSQL are not started.
   and it cannot be undone remotely because there is no port left to connect on. Always
   bind TLS to a spare port first and only then move it onto the published one.
 
+### Redis console and key browser: what they need from `blaze/redis-tls`
+
+Both connect **as the tenant's `default` user**, over the container's internal host and
+TLS, never as `blazeadmin`. They need `default` to keep these (all in `+@all`): `HELLO`,
+`SCAN`, `TYPE`, `PTTL`, `MEMORY USAGE`, `OBJECT ENCODING`, `INFO`, `DBSIZE`,
+`COMMAND DOCS`, `MODULE LIST` (optional; without it the module list is just empty) and the
+data commands. They expect CONFIG, ACL and REPLICAOF to be denied, which is what
+`dev/redis/users.acl` mirrors locally.
+
+**Unverified: whether the production image loads the Redis 8 modules.** The stock
+`redis:8` image loads JSON, Search, TimeSeries and Bloom from its `docker-entrypoint.sh`
+(it appends `--loadmodule` for every `.so` in `/usr/local/lib/redis/modules`). If
+`blaze/redis-tls` starts `redis-server` from its own entrypoint without going through that
+script, no module is loaded. Check one tenant with `MODULE LIST`. Everything degrades
+cleanly either way: JSON keys cannot exist without the module, module commands simply do
+not appear in the console's completion, and "New key" only offers JSON when it is loaded.
+
 ## Ports
 
 | Service | Port | Note |
