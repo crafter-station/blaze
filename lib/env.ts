@@ -82,7 +82,9 @@ const schema = z.object({
 	 * Server-side key for the SQL console's assistant. Optional: without it the assistant
 	 * is hidden and the console works exactly as before.
 	 */
-	ANTHROPIC_API_KEY: z.string().min(1).optional(),
+	OPENAI_API_KEY: z.string().min(1).optional(),
+	/** Model for the assistant; defaults to the one in lib/sql/assistant.ts. */
+	OPENAI_MODEL: z.string().min(1).optional(),
 
 	/**
 	 * Dev-only tenant redirect (lib/dev-override.ts). Read straight from `process.env` there

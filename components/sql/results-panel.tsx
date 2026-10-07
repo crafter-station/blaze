@@ -411,7 +411,7 @@ function ErrorView({
 								{onFix && (
 									<Button variant="outline" size="xs" onClick={onFix}>
 										<Sparkles data-icon="inline-start" />
-										Fix with Claude
+										Fix with AI
 									</Button>
 								)}
 								{located === false && (

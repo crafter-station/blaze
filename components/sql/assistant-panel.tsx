@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { isMacPlatform } from "./hooks";
 
 /**
- * "Ask Claude": write SQL from a description, explain the statement under the cursor, or
+ * "Ask AI": write SQL from a description, explain the statement under the cursor, or
  * fix the one that just failed. Answers stream in; any SQL in them can be inserted,
  * swapped in, or opened in a new tab, and is never run from here.
  */
@@ -128,7 +128,7 @@ export function AssistantPanel({
 		[databaseId],
 	);
 
-	// "Fix with Claude" and palette actions arrive as triggers from the console.
+	// "Fix with AI" and palette actions arrive as triggers from the console.
 	const lastNonce = useRef<number | null>(null);
 	useEffect(() => {
 		if (!trigger || !enabled || trigger.nonce === lastNonce.current) return;
@@ -177,10 +177,10 @@ export function AssistantPanel({
 	const mod = isMacPlatform() ? "⌘" : "Ctrl";
 
 	return (
-		<section aria-label="Ask Claude" className={cn("flex min-h-0 flex-col bg-card", className)}>
+		<section aria-label="Ask AI" className={cn("flex min-h-0 flex-col bg-card", className)}>
 			<div className="flex h-10 shrink-0 items-center gap-2 border-border border-b pr-1.5 pl-3">
 				<Sparkles className="size-3.5 text-brand-text" />
-				<h2 className="font-medium text-[0.8125rem]">Ask Claude</h2>
+				<h2 className="font-medium text-[0.8125rem]">Ask AI</h2>
 				<Button
 					variant="ghost"
 					size="icon-sm"
@@ -197,9 +197,9 @@ export function AssistantPanel({
 					<div className="rounded-lg border border-border bg-muted/40 p-3.5 text-sm">
 						<p className="font-medium">The assistant is not set up here</p>
 						<p className="mt-1 text-muted-foreground text-xs leading-relaxed">
-							It needs an Anthropic API key on the server. Set{" "}
+							It needs an OpenAI API key on the server. Set{" "}
 							<code className="rounded bg-muted px-1 py-px font-mono text-[0.6875rem]">
-								ANTHROPIC_API_KEY
+								OPENAI_API_KEY
 							</code>{" "}
 							and restart the app. Everything else in the console works without it.
 						</p>
@@ -255,7 +255,7 @@ export function AssistantPanel({
 						{status === "idle" ? (
 							<p className="px-1 py-6 text-center text-muted-foreground text-xs leading-relaxed">
 								{mode === "generate"
-									? "Describe the data you want. Claude knows your tables and columns."
+									? "Describe the data you want. The assistant knows your tables and columns."
 									: "Explains the selection, or the statement under the cursor."}
 							</p>
 						) : (
@@ -341,7 +341,7 @@ export function AssistantPanel({
 							</div>
 						</div>
 						<p className="mt-1.5 px-1 text-[0.625rem] text-muted-foreground leading-relaxed">
-							Claude sees your schema and this SQL, never your data or credentials. It only
+							The assistant sees your schema and this SQL, never your data or credentials. It only
 							suggests; you decide what runs.
 						</p>
 					</form>

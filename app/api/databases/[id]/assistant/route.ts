@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 /**
- * POST /api/databases/:id/assistant — the SQL console's "Ask Claude".
+ * POST /api/databases/:id/assistant — the SQL console's "Ask AI".
  *
  * A route handler rather than a server action because the answer streams, and because
  * Next dispatches server actions one at a time per client: a long answer would otherwise
@@ -30,10 +30,7 @@ function fail(status: number, message: string, headers?: HeadersInit) {
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
 	if (!assistantEnabled()) {
-		return fail(
-			503,
-			"The assistant is not configured on this server (ANTHROPIC_API_KEY is unset).",
-		);
+		return fail(503, "The assistant is not configured on this server (OPENAI_API_KEY is unset).");
 	}
 
 	let user: Awaited<ReturnType<typeof requireUser>>;

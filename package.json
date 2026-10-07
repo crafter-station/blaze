@@ -17,7 +17,6 @@
 		"dev:seed": "bun scripts/dev-seed.ts"
 	},
 	"dependencies": {
-		"@anthropic-ai/sdk": "^0.131.0",
 		"@clerk/mcp-tools": "^0.6.0",
 		"@clerk/nextjs": "^7.7.8",
 		"@clerk/themes": "^2.4.57",
@@ -48,6 +47,7 @@
 		"mysql2": "^3.23.3",
 		"next": "16.3.1",
 		"next-themes": "^0.4.6",
+		"openai": "^7.30.0",
 		"pg": "^8.23.0",
 		"radix-ui": "^1.7.0",
 		"react": "19.2.8",

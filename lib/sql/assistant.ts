@@ -1,6 +1,6 @@
 import "server-only";
-import Anthropic from "@anthropic-ai/sdk";
 import { and, count, eq, gte } from "drizzle-orm";
+import OpenAI from "openai";
 import { db } from "@/lib/control/db";
 import { auditLog, type Database, type Instance } from "@/lib/control/schema";
 import { env } from "@/lib/env";
@@ -13,13 +13,17 @@ import type { SqlEngine } from "./types";
 /**
  * The SQL console's assistant: text-to-SQL, explain a query, fix an error.
  *
- * What it sends to Claude is deliberately narrow: the dialect, the schema (names and types
+ * What it sends to the model is deliberately narrow: the dialect, the schema (names and types
  * read as the tenant role), and the user's own request, SQL and engine error. Never a
  * connection string, never a password, never a row of data. What comes back is only ever
  * a *proposal* rendered in the editor; nothing here executes SQL.
  */
 
-export const ASSISTANT_MODEL = "claude-opus-5-5";
+/**
+ * GPT-6.1 Sol: OpenAI's frontier reasoning model at a fifth of Astra's price, which is
+ * the right trade for short SQL answers. Overridable per deployment with OPENAI_MODEL.
+ */
+export const ASSISTANT_MODEL = env.OPENAI_MODEL ?? "gpt-6.1-sol";
 
 export type AssistantMode = "generate" | "explain" | "fix";
 
@@ -31,12 +35,12 @@ export interface AssistantRequest {
 }
 
 export function assistantEnabled(): boolean {
-	return Boolean(env.ANTHROPIC_API_KEY);
+	return Boolean(env.OPENAI_API_KEY);
 }
 
-let client: Anthropic | null = null;
-function anthropic(): Anthropic {
-	client ??= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+let client: OpenAI | null = null;
+function openai(): OpenAI {
+	client ??= new OpenAI({ apiKey: env.OPENAI_API_KEY });
 	return client;
 }
 
@@ -160,10 +164,9 @@ export type AssistantEvent =
 	| { type: "error"; message: string };
 
 /**
- * Streams the answer as NDJSON events. Claude Opus 5.5 with adaptive thinking (always on
- * for this model) at medium effort: SQL generation benefits from a moment's thought, and
- * an editor assistant is still latency-sensitive. Server-side fallbacks are on, so a
- * classifier refusal is retried on the model Anthropic recommends instead of failing.
+ * Streams the answer as NDJSON events, from the Responses API at medium reasoning effort:
+ * SQL generation benefits from a moment's thought, and an editor assistant is still
+ * latency-sensitive. Only the visible text is forwarded; reasoning stays server-side.
  */
 export async function streamAssistant(
 	record: Database & { instance: Instance },
@@ -178,33 +181,42 @@ export async function streamAssistant(
 
 	return new ReadableStream<Uint8Array>({
 		async start(controller) {
+			let stopReason: string | null = null;
 			try {
-				const stream = anthropic().beta.messages.stream(
+				const stream = await openai().responses.create(
 					{
 						model: ASSISTANT_MODEL,
-						max_tokens: 16_000,
-						betas: ["server-side-fallback-2026-07-01"],
-						fallbacks: "default",
-						output_config: { effort: "medium" },
-						cache_control: { type: "ephemeral" },
-						system: systemPrompt(engine),
-						messages: [{ role: "user", content: userMessage(request, schema) }],
+						instructions: systemPrompt(engine),
+						input: userMessage(request, schema),
+						reasoning: { effort: "medium" },
+						max_output_tokens: 16_000,
+						store: false,
+						stream: true,
 					},
 					{ signal },
 				);
 				for await (const event of stream) {
-					if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-						send(controller, { type: "text", text: event.delta.text });
+					if (event.type === "response.output_text.delta") {
+						send(controller, { type: "text", text: event.delta });
+					} else if (event.type === "response.refusal.done") {
+						stopReason = "refusal";
+						send(controller, {
+							type: "error",
+							message: "The assistant declined this request. Try rephrasing it.",
+						});
+					} else if (event.type === "response.completed") {
+						stopReason ??= "completed";
+					} else if (event.type === "response.incomplete") {
+						stopReason = event.response.incomplete_details?.reason ?? "incomplete";
+					} else if (event.type === "response.failed") {
+						stopReason = "failed";
+						send(controller, { type: "error", message: "The assistant failed. Try again." });
+					} else if (event.type === "error") {
+						stopReason = "error";
+						send(controller, { type: "error", message: "The assistant failed. Try again." });
 					}
 				}
-				const final = await stream.finalMessage();
-				if (final.stop_reason === "refusal") {
-					send(controller, {
-						type: "error",
-						message: "Claude declined this request. Try rephrasing it.",
-					});
-				}
-				send(controller, { type: "done", stopReason: final.stop_reason });
+				send(controller, { type: "done", stopReason });
 			} catch (error) {
 				if (signal.aborted) {
 					send(controller, { type: "done", stopReason: "aborted" });
@@ -219,17 +231,17 @@ export async function streamAssistant(
 }
 
 function describe(error: unknown): string {
-	if (error instanceof Anthropic.AuthenticationError) {
-		return "The assistant's API key was rejected. Check ANTHROPIC_API_KEY on the server.";
+	if (error instanceof OpenAI.AuthenticationError) {
+		return "The assistant's API key was rejected. Check OPENAI_API_KEY on the server.";
 	}
-	if (error instanceof Anthropic.RateLimitError) {
-		return "Claude is busy right now. Try again in a moment.";
+	if (error instanceof OpenAI.RateLimitError) {
+		return "The assistant is busy right now. Try again in a moment.";
 	}
-	if (error instanceof Anthropic.APIConnectionError) {
-		return "Could not reach Claude. Check the server's network and try again.";
+	if (error instanceof OpenAI.APIConnectionError) {
+		return "Could not reach OpenAI. Check the server's network and try again.";
 	}
-	if (error instanceof Anthropic.APIError) {
-		return `Claude returned an error (${error.status ?? "unknown"}). Try again.`;
+	if (error instanceof OpenAI.APIError) {
+		return `OpenAI returned an error (${error.status ?? "unknown"}). Try again.`;
 	}
 	return "The assistant failed unexpectedly. Try again.";
 }

@@ -264,7 +264,7 @@ for (const mode of modes) {
 			}
 
 			if (run("assistant")) {
-				await page.getByRole("button", { name: "Ask Claude" }).first().click();
+				await page.getByRole("button", { name: "Ask AI" }).first().click();
 				await page.waitForTimeout(300);
 				if ((await page.getByText("The assistant is not set up here").count()) > 0) {
 					check(true, `${tag}: assistant explains it is not configured`);
@@ -286,11 +286,11 @@ for (const mode of modes) {
 					await page.waitForTimeout(200);
 					const doc = await page.locator(".cm-content").first().innerText();
 					check(doc.includes("revenue"), `${tag}: assistant SQL replaces the editor (nothing run)`);
-					// Fix flow: run a broken statement and hand the error to Claude.
+					// Fix flow: run a broken statement and hand the error to the assistant.
 					await setDoc(page, "select id, status\nfrm orders\nwhere total > 100;");
 					await page.keyboard.press("Control+Enter");
 					await waitIdle(page);
-					await page.getByRole("button", { name: "Fix with Claude" }).click();
+					await page.getByRole("button", { name: "Fix with AI" }).click();
 					await page
 						.getByRole("button", { name: "Replace editor" })
 						.first()

@@ -30,7 +30,7 @@ export default async function SqlPage({ params }: { params: Promise<{ id: string
 				roleName={record.roleName}
 				timeoutSeconds={LIMITS.STATEMENT_TIMEOUT_MS / 1000}
 				maxRows={MAX_ROWS}
-				aiEnabled={Boolean(env.ANTHROPIC_API_KEY)}
+				aiEnabled={Boolean(env.OPENAI_API_KEY)}
 			/>
 		</>
 	);

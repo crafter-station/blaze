@@ -684,7 +684,7 @@ export function SqlConsole(props: ConsoleProps) {
 		if (!assistantOpen) setAssistantTrigger(null);
 	}, [assistantOpen]);
 
-	const askClaude = useCallback((mode: AssistantTrigger["mode"], sql?: string, error?: string) => {
+	const askAi = useCallback((mode: AssistantTrigger["mode"], sql?: string, error?: string) => {
 		setAssistantOpen(true);
 		setAssistantTrigger({ mode, sql, error, nonce: Date.now() });
 	}, []);
@@ -955,19 +955,19 @@ export function SqlConsole(props: ConsoleProps) {
 		{ id: "history", label: "Show query history", icon: History, run: () => showPanel("history") },
 		{
 			id: "ask-write",
-			label: "Ask Claude to write SQL",
+			label: "Ask AI to write SQL",
 			icon: Sparkles,
 			keywords: ["ai", "assistant", "generate", "text to sql"],
-			run: () => askClaude("generate"),
+			run: () => askAi("generate"),
 		},
 		{
 			id: "ask-explain",
-			label: "Ask Claude to explain this query",
+			label: "Ask AI to explain this query",
 			icon: Sparkles,
 			keywords: ["ai", "assistant"],
 			run: () => {
 				const sql = statementText();
-				if (sql.trim()) askClaude("explain", sql);
+				if (sql.trim()) askAi("explain", sql);
 				else setAssistantOpen(true);
 			},
 		},
@@ -1034,7 +1034,7 @@ export function SqlConsole(props: ConsoleProps) {
 			}}
 			onOpenTab={(sql) => {
 				if (!desktop) setAssistantOpen(false);
-				openTab(`${sql}\n`, "From Claude");
+				openTab(`${sql}\n`, "From AI");
 			}}
 			onClose={() => setAssistantOpen(false)}
 			className="h-full"
@@ -1252,14 +1252,14 @@ export function SqlConsole(props: ConsoleProps) {
 								className="ml-auto @6xl:ml-0"
 								onClick={() => setAssistantOpen((open) => !open)}
 								aria-pressed={assistantOpen}
-								aria-label="Ask Claude"
-								title={aiEnabled ? "Ask Claude" : "Ask Claude (not configured on this server)"}
+								aria-label="Ask AI"
+								title={aiEnabled ? "Ask AI" : "Ask AI (not configured on this server)"}
 							>
 								<Sparkles
 									data-icon="inline-start"
 									className={aiEnabled ? "text-brand-text" : undefined}
 								/>
-								<span className="hidden @xl:inline">Ask Claude</span>
+								<span className="hidden @xl:inline">Ask AI</span>
 							</Button>
 							<Button
 								variant="ghost"
@@ -1328,7 +1328,7 @@ export function SqlConsole(props: ConsoleProps) {
 								pending={isPending}
 								pendingSince={isPending ? (pending?.since ?? null) : null}
 								onShowError={(entry) => markError(entry, current?.doc ?? "")}
-								onFixError={(entry) => askClaude("fix", entry.text, entry.outcome.error)}
+								onFixError={(entry) => askAi("fix", entry.text, entry.outcome.error)}
 								aiEnabled={aiEnabled}
 								activeTab={current?.active ?? 0}
 								onActiveTabChange={(tab) =>
@@ -1416,8 +1416,8 @@ export function SqlConsole(props: ConsoleProps) {
 				<Sheet open={assistantOpen} onOpenChange={setAssistantOpen}>
 					<SheetContent side="bottom" className="h-[88dvh] gap-0 p-0" showCloseButton={false}>
 						<SheetHeader className="sr-only">
-							<SheetTitle>Ask Claude</SheetTitle>
-							<SheetDescription>Write, explain or fix SQL with Claude</SheetDescription>
+							<SheetTitle>Ask AI</SheetTitle>
+							<SheetDescription>Write, explain or fix SQL with AI</SheetDescription>
 						</SheetHeader>
 						{assistant}
 					</SheetContent>
