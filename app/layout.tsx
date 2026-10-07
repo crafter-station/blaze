@@ -66,6 +66,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
 			<body className="min-h-dvh bg-background font-sans text-foreground antialiased">
 				<ThemeProvider>
 					<ClerkProvider
+						waitlistUrl="/waitlist"
 						appearance={{
 							// The shadcn theme reads our CSS variables directly, so Clerk follows
 							// light and dark mode without a second appearance object.

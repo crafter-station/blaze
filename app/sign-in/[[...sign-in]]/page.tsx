@@ -1,11 +1,15 @@
 import { SignIn } from "@clerk/nextjs";
+import { AuthShell, embeddedAuthAppearance } from "@/components/marketing/auth-shell";
 
 export const metadata = { title: "Sign in" };
 
 export default function SignInPage() {
 	return (
-		<main className="flex min-h-screen items-center justify-center p-6">
-			<SignIn />
-		</main>
+		<AuthShell
+			title="Sign in to blaze"
+			description="Welcome back. Your databases are where you left them."
+		>
+			<SignIn appearance={embeddedAuthAppearance} />
+		</AuthShell>
 	);
 }

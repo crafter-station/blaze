@@ -62,6 +62,15 @@ for (const mode of modes) {
 		for (const { path, name } of pages) {
 			await page.goto(`${base}${path}`, { waitUntil: "networkidle", timeout: 90_000 });
 			await page.evaluate(() => document.fonts.ready);
+			// Walk the page once so scroll-triggered reveals have fired before a full capture.
+			await page.evaluate(async () => {
+				const step = window.innerHeight * 0.6;
+				for (let y = 0; y < document.body.scrollHeight; y += step) {
+					window.scrollTo(0, y);
+					await new Promise((resolve) => setTimeout(resolve, 120));
+				}
+				window.scrollTo(0, 0);
+			});
 			await page.waitForTimeout(Number(flag("wait", "900")));
 			const file = join(out, `${name}.${mode}.${width}.png`);
 			await page.screenshot({ path: file, fullPage: full });

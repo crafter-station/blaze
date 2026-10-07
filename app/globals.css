@@ -298,22 +298,6 @@
 	animation: blaze-pulse 9s ease-in-out infinite;
 }
 
-@keyframes blaze-sparkle {
-	0%,
-	100% {
-		opacity: 0.25;
-		transform: scale(0.7) rotate(0deg);
-	}
-	50% {
-		opacity: 1;
-		transform: scale(1) rotate(20deg);
-	}
-}
-
-.blaze-sparkle {
-	animation: blaze-sparkle 3.4s ease-in-out infinite;
-}
-
 /* The flame's core dots flicker out of phase, so the mark reads as lit, not printed. */
 @keyframes blaze-flicker {
 	0%,
@@ -336,7 +320,6 @@
 	.blaze-drift,
 	.blaze-drift-slow,
 	.blaze-pulse,
-	.blaze-sparkle,
 	.blaze-flicker {
 		animation: none;
 	}
