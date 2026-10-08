@@ -156,7 +156,7 @@ function Snippet() {
 			<div className="flex items-center gap-3 rounded-lg bg-[var(--code-background)] py-2 pr-2 pl-4 ring-1 ring-border ring-inset">
 				<code
 					translate="no"
-					className="min-w-0 flex-1 break-all py-1 font-mono text-[0.8125rem] leading-relaxed"
+					className="min-w-0 flex-1 break-words py-1 font-mono text-[0.8125rem] leading-relaxed"
 				>
 					<span className="mr-2 select-none text-muted-foreground">$</span>
 					{MCP_COMMAND}
