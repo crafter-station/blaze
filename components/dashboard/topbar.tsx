@@ -33,9 +33,11 @@ function crumbs(pathname: string, databases: SidebarDatabase[]) {
 
 	const id = currentDatabaseId(pathname);
 	if (id) {
-		const name = databases.find((d) => d.id === id)?.name ?? id;
-		list.push({ label: name, href: `/databases/${id}` });
-		if (page && DATABASE_PAGE[page]) list.push({ label: DATABASE_PAGE[page] });
+		const database = databases.find((d) => d.id === id);
+		list.push({ label: database?.name ?? id, href: `/databases/${id}` });
+		// Mongo's console slot is its Shell.
+		if (page === "console" && database?.engine === "mongo") list.push({ label: "Shell" });
+		else if (page && DATABASE_PAGE[page]) list.push({ label: DATABASE_PAGE[page] });
 	}
 	return list;
 }

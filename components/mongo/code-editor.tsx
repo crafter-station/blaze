@@ -118,6 +118,8 @@ function lintWith(mode: EditorMode, allowEmpty: boolean) {
 			} catch (error) {
 				if (!(error instanceof LiteralParseError)) return [];
 				if (allowEmpty && !text.trim()) return [];
+				// Still being typed: an error at the very end is "not finished yet", not a mistake.
+				if (error.position >= text.trimEnd().length) return [];
 				const from = Math.min(error.position, Math.max(0, text.length - 1));
 				return [
 					{ from, to: Math.min(text.length, from + 1), severity: "error", message: error.message },

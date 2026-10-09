@@ -22,11 +22,11 @@ import { isMacPlatform } from "./hooks";
  * editor, or fix the one that just failed. Answers stream in; any code in them can be
  * inserted, swapped in, or opened in a new tab, and is never run from here.
  *
- * Shared by the SQL console and the Redis console. Only the wording differs; the route,
- * quota and streaming are the same.
+ * Shared by the SQL console, the Redis console and the Mongo shell. Only the wording
+ * differs; the route, quota and streaming are the same.
  */
 
-export type AssistantVariant = "sql" | "redis";
+export type AssistantVariant = "sql" | "redis" | "mongo";
 
 const COPY: Record<
 	AssistantVariant,
@@ -75,6 +75,22 @@ const COPY: Record<
 		copy: "Copy commands",
 		copied: "Copied commands",
 		taskLabel: "commands",
+	},
+	mongo: {
+		write: "Write a command",
+		explainTab: "Explain command",
+		idleWrite:
+			"Describe what you want. The assistant knows your collections and their field names and types, never the values.",
+		idleExplain: "Explains the command in the shell input.",
+		placeholder: "Paid orders over $500 from the last 30 days, newest first…",
+		nothingToExplain: "Type a command in the shell first.",
+		promptLabel: "Describe what you want to do",
+		privacy:
+			"The assistant sees collection names, field names and BSON types from a small sample, and this command; never values or credentials. It only suggests; you decide what runs.",
+		replace: "Replace input",
+		copy: "Copy command",
+		copied: "Copied command",
+		taskLabel: "command",
 	},
 };
 
