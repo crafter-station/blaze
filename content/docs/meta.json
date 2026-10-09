@@ -11,6 +11,7 @@
 		"auth",
 		"databases",
 		"query",
+		"mongodb",
 		"projects",
 		"errors",
 		"---Platform---",

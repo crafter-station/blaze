@@ -12,6 +12,10 @@ The server refuses unencrypted connections. The certificate is self-signed for n
 
 Each PostgreSQL, MySQL and MariaDB database gets a role that owns it and reaches nothing else on the instance, including other tenants and the maintenance database.
 
+## One user per MongoDB database
+
+Each MongoDB database gets a user whose only role is `dbOwner` on that database. It cannot list, read or write any other tenant's database or `admin`, and it cannot authenticate against them. `scripts/smoke-provision.ts` checks each of these against the real server. The dashboard's Browser and Shell connect as that same user, never as an administrator.
+
 ## Redis gets its own container
 
 Redis ACLs cannot contain a tenant: `FLUSHALL` ignores key patterns. So every Redis database is a separate container with its own memory cap, enforced by Redis itself through `maxmemory`.

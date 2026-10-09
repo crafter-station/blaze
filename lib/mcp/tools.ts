@@ -73,17 +73,27 @@ export const TOOLS: ToolDefinition[] = [
 		name: "run_query",
 		description:
 			"Execute SQL against a database this key owns and return the rows. Use it to create " +
-			"schema, seed data, and inspect results without needing a Postgres driver or network " +
-			"access to the instance. Runs as that database's own role, so it can reach nothing " +
-			"else. Statements time out after 30s and at most 500 rows come back. A SQL error is " +
-			"reported in the result rather than as a failure — read `ok` before trusting `rows`.",
+			"schema, seed data, and inspect results without needing a driver or network access " +
+			"to the instance. Runs as that database's own role, so it can reach nothing else. " +
+			"Statements time out after 30s and at most 500 rows come back. A SQL error is " +
+			"reported in the result rather than as a failure — read `ok` before trusting `rows`. " +
+			"For a MongoDB database, pass one mongosh-style command in `sql` instead, e.g. " +
+			"`db.orders.find({ status: 'paid' }).limit(10)` or `db.orders.insertMany([{ … }])`; " +
+			"documents come back as rows of their top-level fields in Extended JSON. Redis is " +
+			"not supported here: use its connection string.",
 		inputSchema: {
 			type: "object",
 			properties: {
 				database_id: { type: "string" },
 				sql: {
 					type: "string",
-					description: "One or more statements. The last result is returned.",
+					description:
+						"SQL: one or more statements, the last result is returned. MongoDB: exactly one shell command.",
+				},
+				confirm: {
+					type: ["boolean", "string"],
+					description:
+						"MongoDB only. Required to run deleteMany/updateMany with an empty filter, drop or dropIndex (true), or dropDatabase (the database name).",
 				},
 			},
 			required: ["database_id", "sql"],
@@ -192,7 +202,11 @@ export async function callTool(user: User, name: string, args: Args): Promise<To
 			if (record.status === "suspended") {
 				return { text: "Database is suspended — free storage to resume it.", isError: true };
 			}
-			const result = await runTenantQuery(record, String(args.sql));
+			const confirm =
+				typeof args.confirm === "boolean" || typeof args.confirm === "string"
+					? args.confirm
+					: undefined;
+			const result = await runTenantQuery(record, String(args.sql), { confirm });
 			return {
 				text: json({
 					ok: result.ok,
@@ -203,6 +217,7 @@ export async function callTool(user: User, name: string, args: Args): Promise<To
 					row_count: result.rowCount ?? 0,
 					truncated: result.truncated ?? false,
 					duration_ms: result.durationMs ?? 0,
+					...(result.note && { note: result.note }),
 				}),
 			};
 		}

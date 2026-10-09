@@ -44,3 +44,21 @@ url = "https://blaze.crafter.run/v1/mcp"
 <Callout title="How browser clients find the OAuth flow">
   Browser-based clients read the `WWW-Authenticate` header on a 401 to start the OAuth flow, so blaze sends CORS headers that expose it. The endpoint also answers `405` to an SSE `GET`: it is stateless and never pushes messages, and saying so is cleaner than leaving a stream open that will never carry anything.
 </Callout>
+
+## Database clients
+
+The MCP tools hand an agent a connection string, and any ordinary driver can use it. For MongoDB, use the string as it is, with `mongosh` or the official Node driver:
+
+```bash title="mongosh"
+mongosh "mongodb://u_myapp_x7f2:…@mongo.blaze.crafter.run:27017/db_myapp_x7f2?tls=true&tlsAllowInvalidCertificates=true&authSource=db_myapp_x7f2"
+```
+
+```ts title="Node.js (mongodb driver)"
+import { MongoClient } from "mongodb";
+
+const client = new MongoClient(process.env.MONGODB_URL!);
+const orders = client.db().collection("orders");
+await orders.insertOne({ status: "paid", total: 42.5, placedAt: new Date() });
+```
+
+More in [MongoDB](/docs/mongodb). For PostgreSQL clients, check [TLS](/docs/tls) for the one `sslmode` exception.

@@ -140,9 +140,9 @@ export function isSupported(engine: Engine): boolean {
  * this module (it pulls in database drivers).
  *
  * The invariant is a subset, not equality: everything advertised must be implemented, but
- * implemented-and-not-yet-offered is a legitimate state. MongoDB is exactly that — the
- * provisioner works, but the instance cannot be made to require TLS through Dokploy, and
- * offering a plaintext engine would contradict what the rest of the product promises.
+ * implemented-and-not-yet-offered is a legitimate state. MongoDB sat in it until its shared
+ * instance could require TLS (infra/mongo-tls); offering a plaintext engine would have
+ * contradicted what the rest of the product promises.
  */
 {
 	const implemented = new Set(Object.keys(ENGINE_OPS));

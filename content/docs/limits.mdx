@@ -12,6 +12,15 @@ blaze is free and has no billing, so these limits are what keeps it running rath
 
 Storage is sampled every five minutes. A database over its limit is suspended (connections refused, nothing deleted) and reinstated automatically once it is back under.
 
+## MongoDB
+
+MongoDB enforces less per tenant than the SQL engines, and the limits above apply to it as follows:
+
+- **Statement timeout covers reads only.** The server's `defaultMaxTimeMS` stops `find`, `aggregate`, `count` and `distinct` after <StatementTimeout />. Writes are not bounded server-side, and an operation that sets its own larger `maxTimeMS` is not overridden. The dashboard Shell and Browser cap every operation, writes included, at <StatementTimeout />.
+- **No per-database connection limit.** MongoDB has no per-user connection cap. The server has a single instance-wide limit shared by every tenant, so pool your connections and close what you do not use.
+- **Idle-in-transaction** does not apply. Transactions need a replica set, and this is a standalone server.
+- **Storage** counts the compressed on-disk size (`storageSize`). A database over the limit is suspended by removing its user's roles until it is back under. Nothing is deleted.
+
 ## What the alpha does not have yet
 
 - **No backups yet.** Treat alpha databases as somewhere to build and test. A dropped database is gone, and there is nothing to restore it from.

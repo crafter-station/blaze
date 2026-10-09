@@ -1,6 +1,7 @@
 import "server-only";
 import type { Database, Instance } from "./control/schema";
 import { LIMITS } from "./limits";
+import { runMongoQuery } from "./mongo/query";
 import type { StatementOutcome } from "./sql/types";
 import { connectTenant } from "./tenant-db";
 
@@ -25,14 +26,26 @@ export interface QueryOutcome {
 	truncated?: boolean;
 	durationMs?: number;
 	command?: string;
+	/** Something the engine adapter wants the caller to know, e.g. that results were capped. */
+	note?: string;
 }
 
 export async function runTenantQuery(
 	record: Database & { instance: Instance },
 	sql: string,
+	options: { confirm?: boolean | string } = {},
 ): Promise<QueryOutcome> {
 	const trimmed = sql.trim();
 	if (!trimmed) return { ok: false, error: "Nothing to run" };
+
+	// Mongo takes one mongosh-style command instead of SQL, through the Shell's own path.
+	if (record.engine === "mongo") {
+		return runMongoQuery(
+			record as Parameters<typeof runMongoQuery>[0],
+			trimmed,
+			options.confirm ?? false,
+		);
+	}
 
 	const started = Date.now();
 	let connection: Awaited<ReturnType<typeof connectTenant>> | null = null;

@@ -34,7 +34,7 @@ export interface EngineConfig {
 	urlScheme: string;
 	/**
 	 * Whether the SQL editor and table browser are available (PLAN.md Q18).
-	 * Mongo and Redis need bespoke consoles and ship in v1.1.
+	 * Mongo and Redis have their own Browser and Console/Shell in those slots instead.
 	 */
 	hasSql: boolean;
 	/** Image used when provisioning a dedicated container. */

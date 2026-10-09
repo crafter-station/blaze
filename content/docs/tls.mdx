@@ -9,3 +9,18 @@ The server refuses unencrypted connections. The certificate is currently self-si
 <Callout type="warn" title="node-postgres">
   Most clients work with `?sslmode=require` (libpq, psql, psycopg, pgx, Prisma, postgres.js) because `require` means "encrypt, do not verify". **node-postgres 8.23+** currently treats it as `verify-full` and will reject the certificate; use `?sslmode=no-verify` there until a publicly trusted certificate is in place.
 </Callout>
+
+## MongoDB
+
+The MongoDB server runs `requireTLS`, so a connection without TLS is closed before authentication. blaze's connection strings carry `tls=true&tlsAllowInvalidCertificates=true`. The second option has the same meaning as `sslmode=require`: encrypt, but do not verify the self-signed certificate. Drivers that build their options separately need the same two settings:
+
+| Client | Settings |
+| --- | --- |
+| mongosh | `--tls --tlsAllowInvalidCertificates` (or keep them in the string) |
+| Node.js driver | `{ tls: true, tlsAllowInvalidCertificates: true }` |
+| PyMongo | `tls=True, tlsAllowInvalidCertificates=True` |
+| Go driver | `options.Client().ApplyURI(url)` with the string as is |
+
+## Redis
+
+Redis listens on TLS only. Use the `rediss://` scheme, and skip certificate verification (`redis-cli --tls --insecure`, or `tls: { rejectUnauthorized: false }` in Node).

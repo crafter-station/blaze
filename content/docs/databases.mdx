@@ -22,3 +22,18 @@ curl -X PATCH https://blaze.crafter.run/v1/databases/$ID \
   -H "Content-Type: application/json" \
   -d '{"ttl_seconds":null}'
 ```
+
+## Engines
+
+`engine` is one of the available engines below. It defaults to `postgres`.
+
+```bash title="Create a MongoDB database"
+curl -X POST https://blaze.crafter.run/v1/databases \
+  -H "Authorization: Bearer $BLAZE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"engine":"mongo","name":"my-app"}'
+```
+
+The connection string comes back in the scheme each engine's drivers expect: `postgresql://`, `mysql://`, `mariadb://`, `mongodb://` (with `tls=true`), and `rediss://`. See [MongoDB](/docs/mongodb) for its connection options.
+
+<EngineList />

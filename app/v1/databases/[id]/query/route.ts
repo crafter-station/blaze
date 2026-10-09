@@ -7,7 +7,13 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const QueryBody = z.object({
+	/** SQL, or for MongoDB one mongosh-style command such as `db.orders.find({ … })`. */
 	sql: z.string().min(1).max(100_000),
+	/**
+	 * MongoDB only: run a command the shell would ask about (an empty-filter deleteMany or
+	 * updateMany, drop, dropIndex). dropDatabase takes the database name instead of `true`.
+	 */
+	confirm: z.union([z.boolean(), z.string()]).optional(),
 });
 
 /**
@@ -38,7 +44,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
 	const body = await readBody(request, QueryBody);
 	if (isResponse(body)) return body;
 
-	const result = await runTenantQuery(record, body.sql);
+	const result = await runTenantQuery(record, body.sql, { confirm: body.confirm });
 
 	return apiJson({
 		ok: result.ok,
@@ -49,5 +55,6 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
 		row_count: result.rowCount ?? 0,
 		truncated: result.truncated ?? false,
 		duration_ms: result.durationMs ?? 0,
+		...(result.note && { note: result.note }),
 	});
 }

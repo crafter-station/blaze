@@ -13,6 +13,8 @@ curl -X POST https://blaze.crafter.run/v1/databases/$ID/query \
 
 Queries run as that database's own role, so they reach nothing else on the instance. Statements time out after <StatementTimeout /> and at most 500 rows come back.
 
+For a MongoDB database, send one mongosh-style command in `sql` instead, for example `db.orders.find({ status: 'paid' }).limit(5)`. Documents come back as rows of their top-level fields. See [MongoDB](/docs/mongodb#querying-without-a-driver) for the syntax and the `confirm` field.
+
 <Callout type="warn" title="Read ok before rows">
   A SQL error returns `200` with `"ok": false`, not a 4xx. The HTTP call succeeded; the SQL did not. Collapsing the two would make clients retry transport failures and syntax errors identically, so read `ok` before trusting `rows`.
 </Callout>

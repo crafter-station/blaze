@@ -1,0 +1,84 @@
+---
+title: MongoDB
+description: Connect with mongosh or the Node driver, and what a shared MongoDB tenant can do.
+icon: Leaf
+---
+
+A MongoDB database on blaze is a database on a shared MongoDB 8 server, plus a user whose only role is `dbOwner` on that database. The user can create collections and indexes and read and write everything in its own database. It cannot see any other tenant's database or `admin`.
+
+```bash title="Create one"
+curl -X POST https://blaze.crafter.run/v1/databases \
+  -H "Authorization: Bearer $BLAZE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"engine":"mongo","name":"my-app"}'
+```
+
+The connection string looks like this:
+
+```text
+mongodb://u_myapp_x7f2:…@mongo.blaze.crafter.run:27017/db_myapp_x7f2?tls=true&tlsAllowInvalidCertificates=true&authSource=db_myapp_x7f2
+```
+
+Keep all three options. `tls=true` is required because the server refuses plaintext. `tlsAllowInvalidCertificates=true` is there because the certificate is self-signed for now (see [TLS](/docs/tls)). `authSource` points at your own database, because that is where your user lives.
+
+## Connect
+
+<Tabs items={["mongosh", "Node.js"]}>
+<Tab value="mongosh">
+
+```bash title="Terminal"
+mongosh "$MONGODB_URL"
+# the string already carries tls=true and tlsAllowInvalidCertificates=true
+```
+
+</Tab>
+<Tab value="Node.js">
+
+```ts title="db.ts"
+import { MongoClient } from "mongodb";
+
+// The connection string from the dashboard or the API, unchanged.
+const client = new MongoClient(process.env.MONGODB_URL!);
+await client.connect();
+
+// No name needed: the database in the string is the one your user owns.
+const db = client.db();
+await db.collection("orders").insertOne({ status: "paid", total: 42.5, placedAt: new Date() });
+const recent = await db.collection("orders").find({ status: "paid" }).sort({ placedAt: -1 }).limit(10).toArray();
+```
+
+</Tab>
+</Tabs>
+
+## Querying without a driver
+
+`POST /v1/databases/:id/query` and the MCP `run_query` tool take one mongosh-style command in the `sql` field:
+
+```bash title="POST /v1/databases/:id/query"
+curl -X POST https://blaze.crafter.run/v1/databases/$ID/query \
+  -H "Authorization: Bearer $BLAZE_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"sql\":\"db.orders.find({ status: 'paid' }).sort({ placedAt: -1 }).limit(5)\"}"
+```
+
+Documents come back as rows of their top-level fields, with values in Extended JSON (`{"$oid": "…"}`, `{"$date": "…"}`). The same parser runs here as in the dashboard Shell, and it parses commands without evaluating them. It accepts:
+
+- `db.<collection>.find / findOne / aggregate / countDocuments / estimatedDocumentCount / distinct`
+- `insertOne / insertMany / updateOne / updateMany / replaceOne / deleteOne / deleteMany`
+- `createIndex / dropIndex / getIndexes / drop`
+- `.sort()`, `.limit()`, `.skip()`, `.project()` and `.count()` after `find`
+- `db.getCollectionNames()`, `db.createCollection()`, `db.stats()`, `show collections`, and a raw command document such as `{ "ping": 1 }`
+
+Arguments are relaxed JSON with the shell's types: unquoted keys, single quotes, `ObjectId("…")`, `ISODate("…")`, `NumberLong("…")`, `NumberDecimal("…")` and regex literals.
+
+A few commands need `"confirm": true` in the body: `deleteMany` or `updateMany` with an empty filter, `drop` and `dropIndex`. `dropDatabase` needs the database name instead. Change streams (`watch`) and tailable cursors are refused because they need a connection that stays open.
+
+## In the dashboard
+
+Every MongoDB database has a **Browser** and a **Shell**. The Browser lists collections with their counts and sizes, finds with a filter, projection and sort, edits, inserts and deletes documents, and manages indexes. The Shell takes the same mongosh-style commands as the API, with completion for collections, methods and operators. Both run as your database's own user. **Ask AI** in the Shell sees your collection names and the field names and types from a small sample, never the values.
+
+## Limits that differ from SQL
+
+- **Read timeout.** Reads (`find`, `aggregate`, `count`, `distinct`) are stopped after <StatementTimeout /> by the server's `defaultMaxTimeMS`. Writes have no server-side time limit, and a client that sets its own larger `maxTimeMS` on an operation is not overridden.
+- **No per-user connection limit.** MongoDB has no equivalent of a per-role connection cap. The shared server has an instance-wide limit, so please pool your connections.
+- **Storage** works as it does everywhere else: the on-disk size (`storageSize`) is sampled every five minutes, and a database over the limit is suspended until it is back under. While a database is suspended, its user has no roles.

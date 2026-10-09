@@ -17,7 +17,7 @@ blaze provisions managed databases in about 200 milliseconds and lets you run SQ
 
 <EngineList />
 
-PostgreSQL, MySQL and MariaDB tenants each get their own database and role on a shared instance. Redis gets a dedicated container per tenant, because its ACLs cannot contain a tenant. The others are modelled and on their way.
+PostgreSQL, MySQL and MariaDB tenants each get their own database and role on a shared instance. MongoDB tenants get their own database and a user that owns only that database, also on a shared instance. Redis gets a dedicated container per tenant, because its ACLs cannot contain a tenant. libSQL is modelled and on its way.
 
 ## Three ways in
 
