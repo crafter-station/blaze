@@ -20,6 +20,13 @@ import type {
  * would catch reads anyway, but writes are not covered by it.
  */
 
+/**
+ * Read documents with their numeric BSON types intact. By default the driver turns int64,
+ * int32 and double all into JS numbers, so a Long or a whole-number double would come back
+ * from an edit as an int32: a silent type change. Kept to document reads only.
+ */
+export const RAW = { promoteValues: false } as const;
+
 export const PAGE_SIZES = [20, 50, 100, 200] as const;
 export const MAX_PAGE = 200;
 const MAX_COLLECTIONS = 500;
@@ -101,6 +108,7 @@ export async function find(record: OwnedMongo, request: FindRequest): Promise<Fi
 		const docs = await db
 			.collection(request.collection)
 			.find(filter, {
+				...RAW,
 				projection: Object.keys(projection).length ? projection : undefined,
 				sort: Object.keys(sort).length ? sort : undefined,
 				skip,
@@ -161,7 +169,7 @@ export async function replaceDocument(
 		}
 		const fresh = await db
 			.collection(collection)
-			.findOne({ _id } as BSON.Document, { maxTimeMS: OP_TIMEOUT });
+			.findOne({ _id } as BSON.Document, { ...RAW, maxTimeMS: OP_TIMEOUT });
 		return toDisplay(fresh);
 	});
 }
@@ -269,7 +277,9 @@ export async function dropCollection(record: OwnedMongo, name: string) {
  * Keys and BSON types of up to `SAMPLE_SIZE` documents per collection. Values never leave
  * this function: `inferShape` keeps only paths and type names.
  */
-export async function sampleShapes(record: OwnedMongo): Promise<CollectionShape[]> {
+export async function sampleShapes(
+	record: Parameters<typeof withTenantMongo>[0],
+): Promise<CollectionShape[]> {
 	return withTenantMongo(record, async (db) => {
 		const infos = await db
 			.listCollections({}, { nameOnly: true, authorizedCollections: true })
@@ -284,7 +294,7 @@ export async function sampleShapes(record: OwnedMongo): Promise<CollectionShape[
 				try {
 					const docs = await db
 						.collection(name)
-						.find({}, { limit: SAMPLE_SIZE, maxTimeMS: 5_000 })
+						.find({}, { ...RAW, limit: SAMPLE_SIZE, maxTimeMS: 5_000 })
 						.toArray();
 					return inferShape(
 						name,

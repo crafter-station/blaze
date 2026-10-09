@@ -6,14 +6,42 @@
  *   OPENAI_API_KEY=test OPENAI_BASE_URL=http://127.0.0.1:4011/v1 bun dev
  *
  * Streams a canned answer as server-sent events in the Responses API shape, and logs each
- * request body so the payload (schema + the user's SQL, or the Redis key patterns + the
- * user's commands; nothing else) can be inspected.
+ * request body so the payload (schema + the user's SQL, the Redis key patterns + the user's
+ * commands, or the Mongo field paths and types + the user's command; nothing else) can be
+ * inspected.
  */
 
 const port = Number(process.env.MOCK_PORT ?? 4011);
 
 function answerFor(body: { input?: unknown }): string {
 	const text = JSON.stringify(body.input ?? "");
+	// The Mongo shell sends its collections (field paths and BSON types, no values) in this tag.
+	if (text.includes("<collections>")) {
+		if (text.includes("Task: Fix")) {
+			return [
+				"`paid` is not quoted, so the shell reads it as an unknown name rather than a string.",
+				"",
+				"```javascript",
+				"db.orders.find({ status: 'paid' })",
+				"```",
+			].join("\n");
+		}
+		if (text.includes("Task: Explain")) {
+			return [
+				"Counts the orders in each status, most common first.",
+				"",
+				"- `$group` buckets every order by `status` and adds 1 per document.",
+				"- `$sort` orders the buckets by that count, descending.",
+			].join("\n");
+		}
+		return [
+			"```javascript",
+			"db.orders.find({ status: 'paid', total: { $gt: 500 } }).sort({ placedAt: -1 }).limit(20)",
+			"```",
+			"",
+			"Assumes `total` is in dollars.",
+		].join("\n");
+	}
 	// The Redis console sends its keyspace (patterns and types, no values) in this tag.
 	if (text.includes("<keyspace>")) {
 		if (text.includes("Task: Fix")) {

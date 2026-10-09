@@ -6,6 +6,7 @@ import { auditLog, type Database, type Instance } from "@/lib/control/schema";
 import { env } from "@/lib/env";
 import { newId } from "@/lib/id";
 import { LIMITS } from "@/lib/limits";
+import { mongoContext, mongoInstructions, mongoUserMessage } from "@/lib/mongo/assistant";
 import { redisContext, redisInstructions, redisUserMessage } from "@/lib/redis/assistant";
 import { DIALECTS } from "./dialect";
 import { introspectSchema, schemaAsText } from "./introspect";
@@ -186,6 +187,12 @@ async function prompt(
 		return {
 			instructions: redisInstructions(),
 			input: redisUserMessage(request, await redisContext(record)),
+		};
+	}
+	if (record.engine === "mongo") {
+		return {
+			instructions: mongoInstructions(),
+			input: mongoUserMessage(request, await mongoContext(record)),
 		};
 	}
 	const schema = await schemaContext(record);

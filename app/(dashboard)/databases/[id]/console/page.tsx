@@ -38,7 +38,7 @@ export default async function ConsolePage({ params }: { params: Promise<{ id: st
 						user={record.roleName}
 						timeoutSeconds={LIMITS.STATEMENT_TIMEOUT_MS / 1000}
 						maxDocs={MAX_DOCS}
-						aiEnabled={false}
+						aiEnabled={Boolean(env.OPENAI_API_KEY)}
 						suspended={record.status === "suspended"}
 					/>
 				</Suspense>

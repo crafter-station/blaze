@@ -2,6 +2,7 @@ import "server-only";
 import { type BSON, type Db, MongoServerError } from "mongodb";
 import { LIMITS } from "@/lib/limits";
 import type { OwnedMongo } from "./access";
+import { RAW } from "./browse";
 import { classify } from "./classify";
 import { displayDocuments, fromEJson, MAX_RESPONSE_BYTES, toDisplay } from "./ejson";
 import { friendlyMongoError } from "./errors";
@@ -161,7 +162,7 @@ async function execute(
 					}
 					const asked = cursor.limit && cursor.limit > 0 ? cursor.limit : null;
 					const limit = asked !== null && asked <= MAX_DOCS ? asked : MAX_DOCS + 1;
-					const docs = await coll.find(doc(args[0]), { ...opts, limit }).toArray();
+					const docs = await coll.find(doc(args[0]), { ...opts, ...RAW, limit }).toArray();
 					const truncated = docs.length > MAX_DOCS;
 					return {
 						result: documents(docs, truncated),
@@ -172,14 +173,14 @@ async function execute(
 				}
 				case "findOne": {
 					const opts = findOptions(args, cursor);
-					return { result: value(await coll.findOne(doc(args[0]), opts)) };
+					return { result: value(await coll.findOne(doc(args[0]), { ...opts, ...RAW })) };
 				}
 				case "aggregate": {
 					const pipeline = (args[0] as EJsonValue[]).map((stage) =>
 						fromEJson<BSON.Document>(stage),
 					);
 					const out: unknown[] = [];
-					const cursorHandle = coll.aggregate(pipeline, options(args[1]));
+					const cursorHandle = coll.aggregate(pipeline, { ...options(args[1]), ...RAW });
 					try {
 						for await (const item of cursorHandle) {
 							out.push(item);

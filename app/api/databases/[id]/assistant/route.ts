@@ -9,7 +9,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 /**
- * POST /api/databases/:id/assistant: "Ask AI" for the SQL console and the Redis console.
+ * POST /api/databases/:id/assistant: "Ask AI" for the SQL console, the Redis console and
+ * the Mongo shell.
  *
  * A route handler rather than a server action because the answer streams, and because
  * Next dispatches server actions one at a time per client: a long answer would otherwise
@@ -43,7 +44,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 	const { id } = await params;
 	const record = await getOwnedDatabase(user.id, id);
 	const sql = !!record && ENGINE_CONFIG[record.engine].hasSql && isSqlEngine(record.engine);
-	if (!record || !(sql || record.engine === "redis")) {
+	if (!record || !(sql || record.engine === "redis" || record.engine === "mongo")) {
 		return fail(404, "Database not found");
 	}
 
@@ -55,8 +56,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 	if (input.mode !== "generate" && !input.sql?.trim())
 		return fail(
 			400,
-			record.engine === "redis"
-				? "There are no commands to work on."
+			record.engine === "redis" || record.engine === "mongo"
+				? "There is no command to work on."
 				: "There is no SQL to work on.",
 		);
 
