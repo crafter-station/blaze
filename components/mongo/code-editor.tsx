@@ -244,14 +244,14 @@ export function CodeEditor({
 		const list = [
 			mongoLanguage,
 			syntaxHighlighting(highlight),
-			bracketMatching(),
 			lintWith(mode, true),
 			editorTheme,
 			EditorView.contentAttributes.of({ "aria-label": ariaLabel, spellcheck: "false" }),
 			Prec.highest(custom),
 			Prec.high(keys),
 		];
-		if (!singleLine) list.push(EditorView.lineWrapping);
+		// A one-line field shows its last bracket pair boxed even when unfocused; skip it there.
+		if (!singleLine) list.push(EditorView.lineWrapping, bracketMatching());
 		if (placeholder) list.push(placeholderExt(placeholder));
 		if (singleLine) {
 			list.push(

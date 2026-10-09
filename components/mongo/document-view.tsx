@@ -68,11 +68,18 @@ export function TypedValue({ value, className }: { value: EJsonValue; className?
 }
 
 /** A single-line preview for a table cell. */
-export function cellText(value: EJsonValue | undefined, max = 160): string {
+export function cellText(value: EJsonValue | undefined, max = 160, compact = false): string {
 	if (value === undefined) return "";
 	if (value === null) return "null";
 	if (typeof value === "string") return value.length > max ? `${value.slice(0, max)}…` : value;
 	if (typeof value === "number" || typeof value === "boolean") return String(value);
+	// In a table column the header already names the type: show the id or the date itself.
+	if (compact && isObject(value)) {
+		if (typeof value.$oid === "string") return value.$oid;
+		if (typeof value.$date === "string") return value.$date;
+		if (typeof value.$numberDecimal === "string") return value.$numberDecimal;
+		if (typeof value.$numberLong === "string") return value.$numberLong;
+	}
 	const text = toShell(value, 0);
 	return text.length > max ? `${text.slice(0, max)}…` : text;
 }

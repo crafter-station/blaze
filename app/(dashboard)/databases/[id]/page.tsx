@@ -99,9 +99,12 @@ export default async function DatabaseDetailPage({ params }: { params: Promise<{
 							<code className="text-foreground">tls=true</code>. The certificate is currently
 							self-signed, hence{" "}
 							<code className="text-foreground">tlsAllowInvalidCertificates=true</code> (in mongosh:{" "}
-							<code className="text-foreground">--tls --tlsAllowInvalidCertificates</code>). Keep{" "}
-							<code className="text-foreground">authSource</code>: your user lives in this database,
-							not in <code className="text-foreground">admin</code>.
+							<code className="whitespace-nowrap text-foreground">--tls</code>{" "}
+							<code className="whitespace-nowrap text-foreground">
+								--tlsAllowInvalidCertificates
+							</code>
+							). Keep <code className="text-foreground">authSource</code>: your user lives in this
+							database, not in <code className="text-foreground">admin</code>.
 						</>
 					) : isRedis ? (
 						<>

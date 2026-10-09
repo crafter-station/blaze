@@ -393,11 +393,6 @@ export function MongoBrowser({
 								<span className="text-muted-foreground tabular-nums">{collections.length}</span>
 							)}
 						</Button>
-						{current && (
-							<span className="min-w-0 truncate font-mono text-[0.8125rem]" translate="no">
-								{current.name}
-							</span>
-						)}
 					</div>
 					{current ? (
 						<CollectionPanel
@@ -875,7 +870,7 @@ function DocumentsTab({
 					const value = isObject(doc) ? doc[column] : undefined;
 					if (value === undefined) return null;
 					if (typeof value === "number" || typeof value === "boolean") return value;
-					return cellText(value);
+					return cellText(value, 160, true);
 				}),
 			),
 		};
@@ -1089,7 +1084,7 @@ function DocumentsTab({
 				</span>
 				<div className="ml-auto flex items-center gap-1">
 					<span
-						className="px-1 text-[0.6875rem] text-muted-foreground tabular-nums"
+						className="whitespace-nowrap px-1 text-[0.6875rem] text-muted-foreground tabular-nums"
 						aria-live="polite"
 					>
 						{page
@@ -1127,13 +1122,20 @@ function DocumentsTab({
 						title="Reload"
 						disabled={loading}
 						onClick={refresh}
+						className="max-sm:hidden"
 					>
 						<RefreshCw />
 					</Button>
 					{!readOnly && (
-						<Button variant="outline" size="xs" onClick={insertDoc} className="ml-1">
+						<Button
+							variant="outline"
+							size="xs"
+							onClick={insertDoc}
+							className="ml-1"
+							aria-label="Insert"
+						>
 							<Plus data-icon="inline-start" />
-							Insert
+							<span className="max-sm:sr-only">Insert</span>
 						</Button>
 					)}
 				</div>

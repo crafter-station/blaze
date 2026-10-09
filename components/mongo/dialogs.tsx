@@ -2,6 +2,7 @@
 
 import { Loader2, TriangleAlert, WandSparkles } from "lucide-react";
 import { type ReactNode, useEffect, useId, useState } from "react";
+import { isMacPlatform } from "@/components/console-shell/hooks";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -153,7 +154,7 @@ export function DocumentDialog({
 							{busy && <Spinner />}
 							{state?.submitLabel}
 							<Kbd className="ml-1 hidden bg-primary-foreground/15 text-primary-foreground sm:inline-flex">
-								⌘↵
+								{isMacPlatform() ? "⌘↵" : "Ctrl ↵"}
 							</Kbd>
 						</Button>
 					</div>

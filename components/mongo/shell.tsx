@@ -1035,7 +1035,7 @@ function TranscriptBlock({
 					aria-hidden="true"
 				/>
 				<code
-					className="min-w-0 whitespace-pre-wrap break-all font-mono text-[0.8125rem] text-foreground"
+					className="min-w-0 whitespace-pre-wrap break-words font-mono text-[0.8125rem] text-foreground"
 					translate="no"
 				>
 					{block.source}
@@ -1285,7 +1285,7 @@ function DocumentsView({
 				columns.map((name) => {
 					const v = isObject(doc) ? doc[name] : undefined;
 					if (v === undefined) return null;
-					return typeof v === "number" || typeof v === "boolean" ? v : cellText(v);
+					return typeof v === "number" || typeof v === "boolean" ? v : cellText(v, 160, true);
 				}),
 			),
 		}),

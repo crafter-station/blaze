@@ -101,9 +101,11 @@ that tenant: `users` (300, nested address with a GeoJSON point, tag arrays, a un
 index), `products` (120, Decimal128 prices, variant subdocuments), `orders` (2,000, ObjectId
 references, line items, two indexes) and `events` (400 deliberately heterogeneous documents
 with Long, Binary and nulls, and a TTL index). It registers `/databases/db_appdevmngo2/browser`
-and `/databases/db_appdevmngo2/shell`; `--only mongo` reseeds just Mongo.
+and `/databases/db_appdevmngo2/console` (the Shell); `--only mongo` reseeds just Mongo.
 
 Add `mongo=27018` to `TENANT_PORT_OVERRIDE` (the command above already does).
+
+`e2e/mongo-console.mjs` drives the Browser and Shell end to end against it (collections, find with filter, projection, sort and paging, the table, JSON and inspector views, insert, edit and delete, indexes, collection create and drop, every shell method family, completion, parse errors, refused commands, the confirmations, cross-links, the overview and docs pages, and Ask AI against `e2e/mock-openai.ts`), in dark and light at 1440 and 390 px. It only writes `e2e_*` collections and drops them afterwards.
 
 ```bash
 # Connect the way a tenant would (plaintext is refused):
