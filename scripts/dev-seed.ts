@@ -4,7 +4,7 @@
  *   docker compose -f docker-compose.dev.yaml up -d
  *   bun run dev:seed -- --email blaze-ui-test+clerk_test@example.com
  *
- * Four things, all idempotent:
+ * Five things, all idempotent:
  *
  *  1. applies the Drizzle migrations to the **local** control database;
  *  2. creates the same small shop schema in every SQL engine, connected as the tenant role
@@ -12,7 +12,9 @@
  *     ~1.2k orders and ~3k order items);
  *  3. fills the local Redis, as its `default` user, with every data type the key browser
  *     renders (see dev-seed-redis.ts);
- *  4. registers a node, one instance per engine and one database per engine in the control
+ *  4. provisions a tenant on the local MongoDB the way production does and fills it, as
+ *     that tenant, with a few realistic collections (see dev-seed-mongo.ts);
+ *  5. registers a node, one instance per engine and one database per engine in the control
  *     database, owned by the Clerk user with that email.
  *
  * Instance rows carry production-shaped hosts (`blaze-dev-postgres:5433`), not the local
@@ -30,6 +32,7 @@ import mysql from "mysql2/promise";
 import { Client } from "pg";
 import { encryptSecret } from "@/lib/crypto";
 import { ENGINE_CONFIG, type Engine } from "@/lib/engines/types";
+import { MONGO_ADMIN_PASSWORD, MONGO_TENANT, seedMongo } from "./dev-seed-mongo";
 import { REDIS_ADMIN_PASSWORD, REDIS_TENANT, seedRedis } from "./dev-seed-redis";
 
 const CONTROL_URL = process.env.DEV_CONTROL_URL || "postgresql://blaze:blaze@127.0.0.1:54320/blaze";
@@ -58,6 +61,9 @@ const REDIS_DATABASE = {
 	dbName: "db_cache_dev",
 	roleName: "u_cache_dev",
 };
+
+/** The shared Mongo tenant. */
+const MONGO_DATABASE = { id: "db_appdevmngo2", slug: "app-mongo" };
 
 function arg(name: string): string | undefined {
 	const index = process.argv.indexOf(`--${name}`);
@@ -673,6 +679,32 @@ async function registerControlRows(email: string) {
 			],
 		);
 		console.log(`  redis    /databases/${REDIS_DATABASE.id}/browser`);
+
+		// Mongo is shared, like the SQL engines, but blaze's admin password is real here: the
+		// metrics sweep and suspension go through it.
+		await control.query(
+			`INSERT INTO instances (id, node_id, engine, tenancy, version, internal_host, port, admin_user, admin_password_enc, status)
+			 VALUES ('inst_devmongo', 'node_devlocal', 'mongo', 'shared', 'blaze/mongo-tls', 'blaze-dev-mongo', $1, 'blazeadmin', $2, 'active')
+			 ON CONFLICT (id) DO UPDATE SET internal_host = EXCLUDED.internal_host, port = EXCLUDED.port,
+			   admin_password_enc = EXCLUDED.admin_password_enc`,
+			[ENGINE_CONFIG.mongo.port, encryptSecret(MONGO_ADMIN_PASSWORD)],
+		);
+		await control.query(
+			`INSERT INTO databases (id, project_id, owner_user_id, slug, name, engine, tenancy, instance_id, db_name, role_name, password_enc, status)
+			 VALUES ($1, $2, $3, $4, $4, 'mongo', 'shared', 'inst_devmongo', $5, $6, $7, 'active')
+			 ON CONFLICT (id) DO UPDATE SET owner_user_id = EXCLUDED.owner_user_id, project_id = EXCLUDED.project_id,
+			   password_enc = EXCLUDED.password_enc, status = 'active', deleted_at = NULL`,
+			[
+				MONGO_DATABASE.id,
+				projectId,
+				userId,
+				MONGO_DATABASE.slug,
+				MONGO_TENANT.db,
+				MONGO_TENANT.role,
+				encryptSecret(MONGO_TENANT.password),
+			],
+		);
+		console.log(`  mongo    /databases/${MONGO_DATABASE.id}/browser`);
 	} finally {
 		await control.end();
 	}
@@ -682,7 +714,7 @@ async function registerControlRows(email: string) {
 
 assertLocal(CONTROL_URL);
 const email = arg("email") ?? process.env.E2E_EMAIL;
-const only = arg("only")?.split(",") as (SqlEngine | "redis")[] | undefined;
+const only = arg("only")?.split(",") as (SqlEngine | "redis" | "mongo")[] | undefined;
 
 console.log("control: migrating");
 await retry("control database", async () => {
@@ -699,7 +731,7 @@ const data = buildData();
 console.log(
 	`tenants: ${data.customers.length} customers, ${data.products.length} products, ${data.orders.length} orders, ${data.items.length} items`,
 );
-for (const engine of (only?.filter((e) => e !== "redis") ??
+for (const engine of (only?.filter((e) => e !== "redis" && e !== "mongo") ??
 	(Object.keys(LOCAL) as SqlEngine[])) as SqlEngine[]) {
 	const statements = script(engine, data);
 	await retry(engine, () => {
@@ -713,6 +745,11 @@ for (const engine of (only?.filter((e) => e !== "redis") ??
 if (!only || only.includes("redis")) {
 	const { keys } = await retry("redis", seedRedis);
 	console.log(`  redis seeded (${keys} keys)`);
+}
+
+if (!only || only.includes("mongo")) {
+	const { documents } = await retry("mongo", seedMongo);
+	console.log(`  mongo seeded (${documents} documents)`);
 }
 
 if (email) {

@@ -7,7 +7,7 @@ import type { Engine } from "./engines/types";
  * the console actually talks to the engines in `docker-compose.dev.yaml`:
  *
  *   TENANT_HOST_OVERRIDE=127.0.0.1
- *   TENANT_PORT_OVERRIDE=postgres=54321,mysql=33061,mariadb=33062,libsql=58080,redis=63791
+ *   TENANT_PORT_OVERRIDE=postgres=54321,mysql=33061,mariadb=33062,libsql=58080,redis=63791,mongo=27018
  *
  * Ignored entirely when `NODE_ENV` is `production`. That check is the whole safety story:
  * in a production build Next inlines `NODE_ENV`, so the branch below is dead code and no

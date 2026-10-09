@@ -43,7 +43,7 @@ Then start the app against the local control DB, with the dev-only tenant redire
 ```bash
 DATABASE_URL=postgresql://blaze:blaze@127.0.0.1:54320/blaze \
 TENANT_HOST_OVERRIDE=127.0.0.1 \
-TENANT_PORT_OVERRIDE=postgres=54321,mysql=33061,mariadb=33062,libsql=58080 \
+TENANT_PORT_OVERRIDE=postgres=54321,mysql=33061,mariadb=33062,libsql=58080,redis=63791,mongo=27018 \
 bun dev
 ```
 
@@ -89,6 +89,26 @@ docker exec -it blaze-dev-redis-1 redis-cli --tls --insecure --user default --pa
 
 `docker compose -f docker-compose.dev.yaml down -v` throws everything away; re-run
 `dev:seed` to start over (it is idempotent anyway).
+
+## Local MongoDB
+
+The compose file also builds `infra/mongo-tls`, the same image as the shared production
+instance: TLS is the only listener (`requireTLS`, a throwaway self-signed certificate made at
+build time), auth is on, and it is published on `127.0.0.1:27018` so it never collides with
+a local Mongo. `dev:seed` hardens it as bootstrap does (`defaultMaxTimeMS` = 30 s),
+provisions the tenant `db_app_dev` / `u_app_dev` exactly as production does, and writes as
+that tenant: `users` (300, nested address with a GeoJSON point, tag arrays, a unique email
+index), `products` (120, Decimal128 prices, variant subdocuments), `orders` (2,000, ObjectId
+references, line items, two indexes) and `events` (400 deliberately heterogeneous documents
+with Long, Binary and nulls, and a TTL index). It registers `/databases/db_appdevmngo2/browser`
+and `/databases/db_appdevmngo2/shell`; `--only mongo` reseeds just Mongo.
+
+Add `mongo=27018` to `TENANT_PORT_OVERRIDE` (the command above already does).
+
+```bash
+# Connect the way a tenant would (plaintext is refused):
+mongosh "mongodb://u_app_dev:devpassword-app@127.0.0.1:27018/db_app_dev?tls=true&tlsAllowInvalidCertificates=true&authSource=db_app_dev"
+```
 
 ## Layout
 

@@ -13,7 +13,11 @@
 # the only listener, 64 MB `maxmemory` with `noeviction`, append-only persistence, and the
 # tenant is the ACL user `default`.
 #
-# See README → "Local SQL engines" and "Local Redis".
+# Plus one MongoDB 8 built from infra/mongo-tls — the same image as the shared production
+# instance: TLS is the only listener (requireTLS, a throwaway self-signed certificate made at
+# build time), auth on, and the tenant is a user with `dbOwner` on its own database.
+#
+# See README → "Local SQL engines", "Local Redis" and "Local MongoDB".
 
 name: blaze-dev
 
@@ -156,6 +160,19 @@ services:
       interval: 2s
       retries: 30
 
+  mongo:
+    build: ./infra/mongo-tls
+    image: blaze-dev/mongo-tls
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: blazeadmin
+      MONGO_INITDB_ROOT_PASSWORD: devpassword-blazeadmin
+    # 27018, not 27017, so this never collides with a Mongo already running on the machine.
+    ports:
+      - "127.0.0.1:27018:27017"
+    volumes:
+      - mongo:/data/db
+    # The image's own HEALTHCHECK pings over TLS.
+
 volumes:
   control:
   postgres:
@@ -164,3 +181,4 @@ volumes:
   libsql:
   redis:
   redis-tls:
+  mongo:
