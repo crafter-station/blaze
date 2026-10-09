@@ -4,6 +4,7 @@ import { adminConnectionString, buildConnectionString, connectionHost } from "@/
 import { db } from "@/lib/control/db";
 import { auditLog, databases, projects, type User } from "@/lib/control/schema";
 import { encryptSecret, generatePassword } from "@/lib/crypto";
+import { isProvisionable } from "@/lib/engines/available";
 import { ENGINE_CONFIG, type Engine } from "@/lib/engines/types";
 import { newId, physicalName, slugify } from "@/lib/id";
 import { LIMITS, TTL } from "@/lib/limits";
@@ -67,7 +68,10 @@ export async function createDatabase(
 	const started = Date.now();
 	const { engine } = input;
 
-	if (!isSupported(engine)) throw new UnsupportedEngineError(engine);
+	// Implemented is not the same as offered: an engine with a working provisioner can still
+	// be held back (as Mongo was, until its instance enforced TLS). Every entry point — the
+	// dialog, `/v1`, MCP — ends here, so this is the one place the offered list is enforced.
+	if (!isSupported(engine) || !isProvisionable(engine)) throw new UnsupportedEngineError(engine);
 
 	await assertUnderDatabaseQuota(user.id);
 

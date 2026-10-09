@@ -25,6 +25,12 @@ import { env } from "./env";
  * Both are stable across container moves and node additions.
  */
 
+/**
+ * TLS options every Mongo connection string carries. The instance runs `requireTLS`; the
+ * certificate is self-signed, so validation is off until a publicly trusted one replaces it.
+ */
+export const MONGO_TLS = "tls=true&tlsAllowInvalidCertificates=true";
+
 export interface ConnectionTarget {
 	engine: Engine;
 	/** Globally unique. Required because it, not the slug, separates dedicated tenants. */
@@ -83,7 +89,11 @@ export function buildConnectionString(target: ConnectionTarget, reveal = true): 
 		case "mongo":
 			// authSource pins auth to the tenant's own database — without it the driver
 			// authenticates against `admin`, which tenants have no access to.
-			return `${urlScheme}://${user}:${password}@${host}:${port}/${dbName}?tls=true&authSource=${dbName}`;
+			// `tls=true` is not optional: the instance runs `requireTLS` and closes plaintext
+			// connections. `tlsAllowInvalidCertificates` is the same posture as Postgres's
+			// `sslmode=require` — encrypted, but the certificate is self-signed, so there is no
+			// chain to verify yet (DEPLOY.md, "Residual gap").
+			return `${urlScheme}://${user}:${password}@${host}:${port}/${dbName}?${MONGO_TLS}&authSource=${dbName}`;
 
 		case "redis":
 			// The tenant is the `default` user, which takes no name in the URL. `rediss` is
@@ -116,6 +126,12 @@ export function adminConnectionString(
 	// still has to read stats from and eventually resume.
 	if (engine === "redis") return `rediss://${user}:${password}@${internalHost}:${port}`;
 	if (engine === "libsql") return `http://${internalHost}:${port}`;
+
+	// The instance admin lives in `admin`; a tenant database name in the path would make
+	// the driver authenticate there and fail.
+	if (engine === "mongo") {
+		return `${urlScheme}://${user}:${password}@${internalHost}:${port}/${database ?? "admin"}?${MONGO_TLS}&authSource=admin`;
+	}
 
 	// `no-verify` rather than `require`: the instance presents a self-signed certificate
 	// that blaze generated on the instance itself, so there is no chain to validate against
@@ -152,5 +168,8 @@ export function tenantInternalConnectionString(
 	const { urlScheme } = ENGINE_CONFIG[engine];
 	const password = encodeURIComponent(decryptSecret(passwordEnc));
 	const user = encodeURIComponent(roleName);
+	if (engine === "mongo") {
+		return `${urlScheme}://${user}:${password}@${internalHost}:${port}/${dbName}?${MONGO_TLS}&authSource=${dbName}&directConnection=true`;
+	}
 	return `${urlScheme}://${user}:${password}@${internalHost}:${port}/${dbName}?sslmode=no-verify`;
 }

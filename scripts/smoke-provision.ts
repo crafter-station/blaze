@@ -1,5 +1,6 @@
 /**
- * End-to-end check of shared-Postgres provisioning against a real instance.
+ * End-to-end check of shared-instance provisioning against a real instance: Postgres, or
+ * MongoDB when ADMIN_URL is a `mongodb://` URL (the checks live in scripts/smoke-mongo.ts).
  *
  * The timing is the least interesting part. What this actually verifies is the isolation
  * that shared tenancy makes *our* responsibility rather than Docker's — specifically that
@@ -8,6 +9,8 @@
  * something explicitly tries it.
  *
  *   ADMIN_URL=postgresql://... bun run scripts/smoke-provision.ts
+ *   ADMIN_URL='mongodb://blazeadmin:...@mongo.blaze.crafter.run:27017/admin?tls=true&tlsAllowInvalidCertificates=true&authSource=admin' \
+ *     bun run scripts/smoke-provision.ts
  */
 
 import { Client } from "pg";
@@ -22,6 +25,11 @@ import {
 
 const ADMIN_URL = process.env.ADMIN_URL;
 if (!ADMIN_URL) throw new Error("ADMIN_URL is required");
+
+if (ADMIN_URL.startsWith("mongodb")) {
+	const { smokeMongo } = await import("./smoke-mongo");
+	process.exit((await smokeMongo(ADMIN_URL)) === 0 ? 0 : 1);
+}
 
 let failures = 0;
 
