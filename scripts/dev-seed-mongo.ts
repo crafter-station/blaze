@@ -57,9 +57,16 @@ const CATEGORIES = ["keyboards", "mice", "monitors", "audio", "cables", "desks"]
 const EPOCH = Date.UTC(2026, 0, 1);
 const DAY = 86_400_000;
 
+/**
+ * Deterministic but realistic ObjectIds: a plausible creation time, then bytes from a
+ * per-collection generator, so references between collections are stable across reseeds.
+ */
 function objectId(prefix: number, n: number): ObjectId {
-	// Deterministic ids: stable links between collections across reseeds.
-	return new ObjectId(prefix.toString(16).padStart(8, "0") + n.toString(16).padStart(16, "0"));
+	const seconds = Math.floor((EPOCH - 400 * DAY) / 1000) + n * 3607 + (prefix % 997);
+	const tail = rng(prefix * 100_003 + n);
+	let hex = seconds.toString(16).padStart(8, "0");
+	for (let i = 0; i < 16; i++) hex += Math.floor(tail() * 16).toString(16);
+	return new ObjectId(hex);
 }
 
 export async function seedMongo(): Promise<{ documents: number }> {

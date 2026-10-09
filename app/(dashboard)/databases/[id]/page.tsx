@@ -38,6 +38,7 @@ export default async function DatabaseDetailPage({ params }: { params: Promise<{
 	const engine = ENGINE_CONFIG[record.engine];
 	const expiry = formatExpiry(record.expiresAt);
 	const isRedis = record.engine === "redis";
+	const isMongo = record.engine === "mongo";
 	// Redis keeps its data in memory, so its quota is RAM (maxmemory), not disk.
 	const quota = isRedis ? LIMITS.REDIS_MEMORY_BYTES : LIMITS.STORAGE_BYTES;
 	const usedPercent = percentOf(record.sizeBytes, quota);
@@ -91,7 +92,18 @@ export default async function DatabaseDetailPage({ params }: { params: Promise<{
 				title="Connection details"
 				icon={Lock}
 				footer={
-					isRedis ? (
+					isMongo ? (
+						<>
+							TLS is required: the server runs <code className="text-foreground">requireTLS</code>{" "}
+							and closes plaintext connections, so the string carries{" "}
+							<code className="text-foreground">tls=true</code>. The certificate is currently
+							self-signed, hence{" "}
+							<code className="text-foreground">tlsAllowInvalidCertificates=true</code> (in mongosh:{" "}
+							<code className="text-foreground">--tls --tlsAllowInvalidCertificates</code>). Keep{" "}
+							<code className="text-foreground">authSource</code>: your user lives in this database,
+							not in <code className="text-foreground">admin</code>.
+						</>
+					) : isRedis ? (
 						<>
 							TLS is required: the only listener is TLS, so use the{" "}
 							<code className="text-foreground">rediss://</code> scheme. The certificate is
@@ -126,6 +138,11 @@ export default async function DatabaseDetailPage({ params }: { params: Promise<{
 								<Field label="User" value="default" />
 								<Field label="Database" value="0" />
 							</>
+						) : isMongo ? (
+							<>
+								<Field label="Database" value={record.dbName} />
+								<Field label="User" value={record.roleName} />
+							</>
 						) : (
 							<>
 								<Field label="Database" value={record.dbName} />
@@ -143,7 +160,9 @@ export default async function DatabaseDetailPage({ params }: { params: Promise<{
 					footer={
 						isRedis
 							? "Sampled every 5 minutes; the Browser shows it live. Redis enforces the limit itself: nothing is evicted, and a write that does not fit fails."
-							: "Sampled every 5 minutes. Postgres has no per-database disk quota, so this sample is the enforcement mechanism, not just a reading."
+							: isMongo
+								? "On-disk size (storageSize from dbStats), sampled every 5 minutes; the Browser shows it live. MongoDB has no per-database quota, so this sample is the enforcement: over the limit, the database is suspended until it is back under."
+								: "Sampled every 5 minutes. Postgres has no per-database disk quota, so this sample is the enforcement mechanism, not just a reading."
 					}
 				>
 					<div className="p-5">
@@ -159,10 +178,18 @@ export default async function DatabaseDetailPage({ params }: { params: Promise<{
 				</Panel>
 
 				<Panel
-					title={isRedis ? "User" : "Role"}
+					title={isRedis || isMongo ? "User" : "Role"}
 					icon={UserRound}
 					footer={
-						isRedis ? (
+						isMongo ? (
+							<>
+								Has <code className="text-foreground">dbOwner</code> on this database and no role
+								anywhere else, so it cannot read another tenant&apos;s database or{" "}
+								<code className="text-foreground">admin</code>. The Browser and Shell run as this
+								user too. Verified by{" "}
+								<code className="text-foreground">scripts/smoke-provision.ts</code>.
+							</>
+						) : isRedis ? (
 							<>
 								This database runs in its own container. The{" "}
 								<code className="text-foreground">default</code> user can run every command on every
@@ -196,27 +223,39 @@ export default async function DatabaseDetailPage({ params }: { params: Promise<{
 				description={
 					isRedis
 						? "Applied by the database's container at startup."
-						: "Applied to this database's role on the server."
+						: isMongo
+							? "Applied by the shared MongoDB server."
+							: "Applied to this database's role on the server."
 				}
 			>
 				<KeyValueList
 					items={
-						isRedis
+						isMongo
 							? [
-									{ label: "Memory", value: formatBytes(LIMITS.REDIS_MEMORY_BYTES) },
-									{ label: "When full", value: "Writes fail (noeviction)" },
-									{ label: "Persistence", value: "Append-only file, synced every second" },
-									{ label: "Container", value: record.instance.internalHost, mono: true },
-								]
-							: [
-									{ label: "Connections", value: `${LIMITS.CONNECTION_LIMIT} concurrent` },
-									{ label: "Statement timeout", value: `${LIMITS.STATEMENT_TIMEOUT_MS / 1000}s` },
 									{
-										label: "Idle in transaction",
-										value: `${LIMITS.IDLE_TRANSACTION_TIMEOUT_MS / 1000}s`,
+										label: "Read timeout",
+										value: `${LIMITS.STATEMENT_TIMEOUT_MS / 1000}s (defaultMaxTimeMS)`,
 									},
+									{ label: "Writes", value: "No server-side time limit" },
+									{ label: "Connections", value: "No per-user limit; shared instance cap" },
 									{ label: "Instance", value: record.instance.internalHost, mono: true },
 								]
+							: isRedis
+								? [
+										{ label: "Memory", value: formatBytes(LIMITS.REDIS_MEMORY_BYTES) },
+										{ label: "When full", value: "Writes fail (noeviction)" },
+										{ label: "Persistence", value: "Append-only file, synced every second" },
+										{ label: "Container", value: record.instance.internalHost, mono: true },
+									]
+								: [
+										{ label: "Connections", value: `${LIMITS.CONNECTION_LIMIT} concurrent` },
+										{ label: "Statement timeout", value: `${LIMITS.STATEMENT_TIMEOUT_MS / 1000}s` },
+										{
+											label: "Idle in transaction",
+											value: `${LIMITS.IDLE_TRANSACTION_TIMEOUT_MS / 1000}s`,
+										},
+										{ label: "Instance", value: record.instance.internalHost, mono: true },
+									]
 					}
 				/>
 			</Panel>

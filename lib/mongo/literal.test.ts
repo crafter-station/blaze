@@ -54,7 +54,7 @@ describe("parseLiteral: relaxed JSON", () => {
 
 	test("regex literals become $regularExpression, with sorted Mongo options", () => {
 		expect(parseLiteral("/^ab[/]c\\/d/mi")).toEqual({
-			$regularExpression: { pattern: "^ab[/]c\\/d", options: "im" },
+			$regularExpression: { pattern: "^ab[/]c/d", options: "im" },
 		});
 		expect(() => parseLiteral("/x/g")).toThrow(/flag "g"/);
 	});

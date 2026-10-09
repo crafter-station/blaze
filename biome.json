@@ -57,7 +57,12 @@
 			}
 		},
 		{
-			"includes": ["components/sql/**", "components/console-shell/**", "components/redis/**"],
+			"includes": [
+				"components/sql/**",
+				"components/console-shell/**",
+				"components/redis/**",
+				"components/mongo/**"
+			],
 			"linter": {
 				"rules": {
 					"a11y": {

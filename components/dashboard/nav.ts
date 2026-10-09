@@ -39,8 +39,8 @@ export const WORKSPACE_NAV: NavItem[] = [
 
 /**
  * Per-database tools depend on the engine: SQL engines get the SQL editor and the table
- * browser; Redis gets its own key Browser and Console in those slots. Mongo has neither
- * yet (PLAN.md Q18).
+ * browser; Redis gets its own key Browser and Console in those slots, and Mongo a
+ * collection Browser and a Shell (the same `/browser` and `/console` routes).
  */
 export function databaseTools(database: Pick<SidebarDatabase, "id" | "engine">): NavItem[] {
 	const base = `/databases/${database.id}`;
@@ -48,6 +48,12 @@ export function databaseTools(database: Pick<SidebarDatabase, "id" | "engine">):
 		return [
 			{ href: `${base}/browser`, label: "Browser", icon: FolderTree },
 			{ href: `${base}/console`, label: "Console", icon: SquareTerminal },
+		];
+	}
+	if (database.engine === "mongo") {
+		return [
+			{ href: `${base}/browser`, label: "Browser", icon: FolderTree },
+			{ href: `${base}/console`, label: "Shell", icon: SquareTerminal },
 		];
 	}
 	return [

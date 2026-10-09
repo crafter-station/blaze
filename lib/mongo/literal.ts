@@ -263,7 +263,8 @@ export class Scanner {
 			if (c === undefined || c === "\n") this.error("Unterminated regular expression", start);
 			this.pos++;
 			if (c === "\\") {
-				pattern += c + (s[this.pos] ?? "");
+				// `\/` only exists to get past the literal's delimiter; the pattern means `/`.
+				pattern += s[this.pos] === "/" ? "/" : c + (s[this.pos] ?? "");
 				this.pos++;
 				continue;
 			}

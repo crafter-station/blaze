@@ -34,6 +34,8 @@ export default async function TablesPage({
 	if (!record) notFound();
 	// Redis has keys, not tables: its Browser takes this slot.
 	if (record.engine === "redis") redirect(`/databases/${id}/browser`);
+	// Mongo has collections, browsed in its own Browser; the SQL table pages do not apply.
+	if (record.engine === "mongo") notFound();
 
 	let tables: TableRef[] = [];
 	let listError: string | null = null;
