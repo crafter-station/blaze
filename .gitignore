@@ -42,3 +42,8 @@ next-env.d.ts
 
 !.env.example
 /.source/
+
+# TLS material for infra images: generated on the VPS, never committed (infra/README.md)
+infra/**/certs/*
+!infra/**/certs/.gitkeep
+*.key
